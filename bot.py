@@ -30,7 +30,7 @@ EXPORTS_DIR = Path("exports")
 # =========================
 START_BUTTON = "Старт"
 MY_INFO_BUTTON = "Моя информация"
-EVENING_MENU_BUTTON = "Меню"
+EVENING_MENU_BUTTON = "Меню вечера"
 CONSULTATION_BUTTON = "Запись на личную консультацию"
 BACK_BUTTON = "Назад"
 
