@@ -1,0 +1,14 @@
+[Unit]
+Description=Barhatnyy Put Telegram Bot
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/barhatnyy-put-bot
+EnvironmentFile=/root/barhatnyy-put-bot/.env
+ExecStart=/root/barhatnyy-put-bot/venv/bin/python /root/barhatnyy-put-bot/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
