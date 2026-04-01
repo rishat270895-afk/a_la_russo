@@ -1,331 +1,237 @@
 import asyncio
-import os
+import logging
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 from aiogram import Bot, Dispatcher, F
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (
-    FSInputFile,
-    KeyboardButton,
-    Message,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-)
-from aiogram.client.default import DefaultBotProperties
-
+from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 # =========================
-# НАСТРОЙКИ — ЗАПОЛНИТЕ ПЕРЕД ЗАПУСКОМ
+# НАСТРОЙКИ
 # =========================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = [922603146]  # Вставьте сюда свой Telegram ID, можно несколько
-RESET_PASSWORD = "12345678"  # Пароль для полного сброса базы
-
-CONSULTATION_TEXT = (
-    "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию: +79660316371 Диана.\n"
-    "Мы поможем подобрать удобное время."
-)
-
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
+CONSULTATION_TEXT = "Для записи на личную консультацию обратитесь по номеру: +7 (900) 000-00-00"
 MENU_IMAGE_PATH = "assets/menu.jpg"
 DB_PATH = "database.db"
-EXPORTS_DIR = "exports"
-
+EXPORTS_DIR = Path("exports")
 
 # =========================
-# ТЕКСТЫ
+# ТЕКСТЫ И КНОПКИ
 # =========================
+START_BUTTON = "Старт"
+MY_INFO_BUTTON = "Моя информация"
+EVENING_MENU_BUTTON = "Меню"
+CONSULTATION_BUTTON = "Запись на личную консультацию"
+BACK_BUTTON = "Назад"
+
+CONSENT_ACCEPT_BUTTON = "Согласен(а)"
+CONSENT_DECLINE_BUTTON = "Не согласен(а)"
+SEND_PHONE_BUTTON = "Отправить номер телефона"
+
+ADMIN_MENU_BUTTON = "Админ меню"
+EXPORT_TODAY_BUTTON = "Выгрузка: сегодня"
+EXPORT_WEEK_BUTTON = "Выгрузка: неделя"
+EXPORT_MONTH_BUTTON = "Выгрузка: месяц"
+RESET_DB_BUTTON = "Ресет базы"
+BROADCAST_BUTTON = "Рассылка"
+BROADCAST_CONFIRM_BUTTON = "Отправить всем"
+BROADCAST_CANCEL_BUTTON = "Отменить рассылку"
+
 START_GREETING = (
     "Добрый вечер, уважаемый пассажир эксклюзивного экспресса «Бархатный путь»! "
     "Совсем скоро начнется наше путешествие, а пока - давайте знакомиться"
 )
 
-NAME_FOLLOWUP_TEMPLATE = (
-    "«{name}», ох, сколько Вас сегодня ждет впереди! "
-    "Вечер наполнен изысканными угощениями, подарками, сюрпризами, танцами, музыкой "
-    "и даже… мистикой! А для того, чтобы подарок нашел своего адресата, важно получить контакт."
+NAME_TEXT_TEMPLATE = (
+    '«{name}», ох, сколько Вас сегодня ждет впереди! '
+    'Вечер наполнен изысканными угощениями, подарками, сюрпризами, танцами, музыкой '
+    'и даже… мистикой! А для того, чтобы подарок нашел своего адресата, важно получить контакт.'
 )
 
 CONSENT_TEXT = (
-    "Пожалуйста, подтвердите согласие на обработку персональных данных, "
-    "чтобы мы могли завершить регистрацию."
+    "Пожалуйста, подтвердите согласие на обработку персональных данных. "
+    "После этого отправьте номер телефона."
 )
 
-ASK_NAME_TEXT = "Пожалуйста, введите ваше имя."
-ASK_PHONE_TEXT = "Нажмите кнопку ниже и отправьте номер телефона."
 REG_SUCCESS_TEMPLATE = (
     "Регистрация успешно завершена.\n"
     "Ваш уникальный номер участника: <b>№{number}</b>.\n"
-    "Добро пожаловать на вечер!"
+    "Добро пожаловать на вечер."
 )
+
 ALREADY_REGISTERED_TEMPLATE = (
-    "Вы уже зарегистрированы.\n"
-    "Ваш уникальный номер участника: <b>№{number}</b>.\n"
-    "Ниже доступно меню участника."
+    "Вы уже зарегистрированы. Ваш уникальный номер участника: <b>№{number}</b>."
 )
-DECLINED_TEXT = (
-    "Без согласия на обработку персональных данных завершить регистрацию нельзя.\n"
-    "Если передумаете, нажмите /start и начните заново."
+
+INFO_TEMPLATE = (
+    "<b>Информация о вас</b>\n"
+    "Имя: {name}\n"
+    "Телефон: {phone}\n"
+    "Номер участника: №{number}\n"
+    "Дата регистрации: {created_at}"
 )
-PHONE_ALREADY_USED_TEXT = (
-    "Этот номер телефона уже зарегистрирован в системе. "
-    "Один участник не может получить два номера. Если это ошибка, обратитесь к администратору."
-)
-CONTACT_REQUIRED_TEXT = "Пожалуйста, используйте кнопку отправки контакта."
-MENU_CAPTION = "Меню на сегодняшний вечер."
-NO_MENU_IMAGE_TEXT = "Файл меню не найден. Загрузите картинку в assets/menu.jpg."
-ADMIN_ONLY_TEXT = "Эта команда доступна только администратору."
-ADMIN_MENU_TEXT = "Панель администратора. Выберите действие."
-RESET_PROMPT_TEXT = "Введите пароль для полного ресета базы."
-RESET_SUCCESS_TEXT = "База данных очищена."
-RESET_FAILED_TEXT = "Неверный пароль. Ресет отменен."
-EXPORT_EMPTY_TEXT = "За выбранный период зарегистрированных участников нет."
-UNKNOWN_TEXT = "Пожалуйста, используйте кнопки меню."
 
 
 # =========================
 # СОСТОЯНИЯ
 # =========================
-class RegistrationStates(StatesGroup):
+class Registration(StatesGroup):
     waiting_for_name = State()
     waiting_for_consent = State()
     waiting_for_phone = State()
 
 
-class AdminStates(StatesGroup):
-    waiting_for_reset_password = State()
+class AdminReset(StatesGroup):
+    waiting_for_password = State()
+
+
+class AdminBroadcast(StatesGroup):
+    waiting_for_content = State()
+    waiting_for_confirmation = State()
 
 
 # =========================
-# БАЗА ДАННЫХ
+# БАЗА
 # =========================
-class Database:
-    def __init__(self, path: str):
-        self.path = path
-        self._init_db()
+def get_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-    def connect(self):
-        return sqlite3.connect(self.path)
 
-    def _init_db(self):
-        with self.connect() as con:
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS participants (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    telegram_user_id INTEGER NOT NULL UNIQUE,
-                    telegram_username TEXT,
-                    full_name TEXT NOT NULL,
-                    phone TEXT NOT NULL UNIQUE,
-                    participant_number INTEGER NOT NULL UNIQUE,
-                    consent_given INTEGER NOT NULL DEFAULT 0,
-                    registered_at TEXT NOT NULL
-                )
-                """
+
+def init_db() -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS participants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tg_id INTEGER NOT NULL UNIQUE,
+                username TEXT,
+                full_name TEXT NOT NULL,
+                phone TEXT NOT NULL UNIQUE,
+                participant_number INTEGER NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
             )
-            con.commit()
-
-    def get_by_telegram_id(self, telegram_user_id: int):
-        with self.connect() as con:
-            cur = con.execute(
-                """
-                SELECT id, telegram_user_id, telegram_username, full_name, phone,
-                       participant_number, consent_given, registered_at
-                FROM participants
-                WHERE telegram_user_id = ?
-                """,
-                (telegram_user_id,),
-            )
-            return cur.fetchone()
-
-    def get_by_phone(self, phone: str):
-        with self.connect() as con:
-            cur = con.execute(
-                """
-                SELECT id, telegram_user_id, telegram_username, full_name, phone,
-                       participant_number, consent_given, registered_at
-                FROM participants
-                WHERE phone = ?
-                """,
-                (phone,),
-            )
-            return cur.fetchone()
-
-    def next_participant_number(self) -> int:
-        with self.connect() as con:
-            cur = con.execute("SELECT MAX(participant_number) FROM participants")
-            value = cur.fetchone()[0]
-            return 1 if value is None else value + 1
-
-    def create_participant(
-        self,
-        telegram_user_id: int,
-        telegram_username: str | None,
-        full_name: str,
-        phone: str,
-        consent_given: bool,
-    ) -> int:
-        participant_number = self.next_participant_number()
-        registered_at = datetime.now().isoformat(timespec="seconds")
-
-        with self.connect() as con:
-            con.execute(
-                """
-                INSERT INTO participants (
-                    telegram_user_id,
-                    telegram_username,
-                    full_name,
-                    phone,
-                    participant_number,
-                    consent_given,
-                    registered_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    telegram_user_id,
-                    telegram_username,
-                    full_name,
-                    phone,
-                    participant_number,
-                    1 if consent_given else 0,
-                    registered_at,
-                ),
-            )
-            con.commit()
-
-        return participant_number
-
-    def list_for_period(self, period: str):
-        now = datetime.now()
-
-        if period == "today":
-            start_dt = datetime(now.year, now.month, now.day)
-        elif period == "week":
-            start_dt = now - timedelta(days=7)
-        elif period == "month":
-            start_dt = now - timedelta(days=30)
-        else:
-            raise ValueError("Unsupported period")
-
-        with self.connect() as con:
-            cur = con.execute(
-                """
-                SELECT id, telegram_user_id, telegram_username, full_name, phone,
-                       participant_number, consent_given, registered_at
-                FROM participants
-                ORDER BY participant_number ASC
-                """
-            )
-            rows = cur.fetchall()
-
-        result = []
-        for row in rows:
-            registered_at = datetime.fromisoformat(row[7])
-            if registered_at >= start_dt:
-                result.append(row)
-        return result
-
-    def reset(self):
-        with self.connect() as con:
-            con.execute("DELETE FROM participants")
-            con.execute("DELETE FROM sqlite_sequence WHERE name='participants'")
-            con.commit()
+            """
+        )
+        conn.commit()
 
 
-db = Database(DB_PATH)
-os.makedirs(EXPORTS_DIR, exist_ok=True)
+
+def normalize_phone(phone: str) -> str:
+    return "".join(ch for ch in phone if ch.isdigit() or ch == "+")
+
+
+
+def get_user_by_tg_id(tg_id: int):
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM participants WHERE tg_id = ?", (tg_id,)).fetchone()
+        return row
+
+
+
+def get_user_by_phone(phone: str):
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM participants WHERE phone = ?", (phone,)).fetchone()
+        return row
+
+
+
+def get_all_user_ids() -> list[int]:
+    with get_connection() as conn:
+        rows = conn.execute("SELECT tg_id FROM participants ORDER BY participant_number ASC").fetchall()
+        return [int(row["tg_id"]) for row in rows]
+
+
+
+def get_next_number() -> int:
+    with get_connection() as conn:
+        row = conn.execute("SELECT MAX(participant_number) AS max_num FROM participants").fetchone()
+        if row is None or row["max_num"] is None:
+            return 1
+        return int(row["max_num"]) + 1
+
+
+
+def create_user(tg_id: int, username: str | None, full_name: str, phone: str) -> int:
+    number = get_next_number()
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO participants (tg_id, username, full_name, phone, participant_number, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (tg_id, username, full_name, phone, number, created_at),
+        )
+        conn.commit()
+    return number
+
+
+
+def get_period_start(period: str) -> datetime:
+    now = datetime.now()
+    if period == "today":
+        return datetime(now.year, now.month, now.day)
+    if period == "week":
+        return now - timedelta(days=7)
+    if period == "month":
+        return now - timedelta(days=30)
+    raise ValueError("Unknown period")
+
+
+
+def get_users_for_period(period: str) -> list[sqlite3.Row]:
+    start_dt = get_period_start(period).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM participants WHERE created_at >= ? ORDER BY participant_number ASC",
+            (start_dt,),
+        ).fetchall()
+        return rows
+
+
+
+def reset_db() -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM participants")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name='participants'")
+        conn.commit()
 
 
 # =========================
-# КНОПКИ
+# EXCEL
 # =========================
-def start_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
-    rows = [[KeyboardButton(text="Старт")]]
-    if is_admin:
-        rows.append([KeyboardButton(text="Админ меню")])
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
+def export_to_excel(period: str) -> Path | None:
+    rows = get_users_for_period(period)
+    if not rows:
+        return None
 
-
-def consent_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Согласен(а)")],
-            [KeyboardButton(text="Не согласен(а)")],
-        ],
-        resize_keyboard=True,
-    )
-
-
-def phone_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Отправить номер телефона", request_contact=True)],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
-
-
-def participant_menu_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Моя информация")],
-            [KeyboardButton(text="Меню вечера")],
-            [KeyboardButton(text="Запись на личную консультацию")],
-            [KeyboardButton(text="Назад")],
-        ],
-        resize_keyboard=True,
-    )
-
-
-def admin_menu_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Выгрузка: сегодня")],
-            [KeyboardButton(text="Выгрузка: за неделю")],
-            [KeyboardButton(text="Выгрузка: за месяц")],
-            [KeyboardButton(text="Ресет базы")],
-            [KeyboardButton(text="Назад")],
-        ],
-        resize_keyboard=True,
-    )
-
-
-# =========================
-# ВСПОМОГАТЕЛЬНОЕ
-# =========================
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
-
-
-def normalize_phone(raw: str) -> str:
-    return raw.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-
-
-def export_to_excel(rows, period_name: str) -> str:
-    file_path = os.path.join(
-        EXPORTS_DIR,
-        f"participants_{period_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-    )
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = EXPORTS_DIR / f"participants_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     data = []
     for row in rows:
         data.append(
             {
-                "ID": row[0],
-                "Telegram user ID": row[1],
-                "Username": row[2] or "",
-                "Имя": row[3],
-                "Телефон": row[4],
-                "Номер участника": row[5],
-                "Согласие": "Да" if row[6] else "Нет",
-                "Дата регистрации": row[7],
+                "ID": row["id"],
+                "Telegram ID": row["tg_id"],
+                "Username": row["username"] or "",
+                "Имя": row["full_name"],
+                "Телефон": row["phone"],
+                "Номер участника": row["participant_number"],
+                "Дата регистрации": row["created_at"],
             }
         )
 
@@ -334,293 +240,423 @@ def export_to_excel(rows, period_name: str) -> str:
     return file_path
 
 
-def participant_info_text(row) -> str:
-    return (
-        "<b>Ваши данные</b>\n"
-        f"Имя: {row[3]}\n"
-        f"Телефон: {row[4]}\n"
-        f"Номер участника: №{row[5]}\n"
-        f"Дата регистрации: {row[7]}"
-    )
-
-
 # =========================
-# ИНИЦИАЛИЗАЦИЯ БОТА
+# КНОПКИ
 # =========================
-if "PASTE_YOUR_BOT_TOKEN_HERE" in BOT_TOKEN:
-    raise RuntimeError(
-        "Откройте файл bot.py и вставьте реальный BOT_TOKEN в переменную BOT_TOKEN."
-    )
+def start_kb(is_admin_user: bool = False) -> ReplyKeyboardMarkup:
+    buttons = [[KeyboardButton(text=START_BUTTON)]]
+    if is_admin_user:
+        buttons.append([KeyboardButton(text=ADMIN_MENU_BUTTON)])
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
-bot = Bot(
-    token=BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+
+consent_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=CONSENT_ACCEPT_BUTTON)],
+        [KeyboardButton(text=CONSENT_DECLINE_BUTTON)],
+    ],
+    resize_keyboard=True,
 )
+
+phone_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text=SEND_PHONE_BUTTON, request_contact=True)]],
+    resize_keyboard=True,
+)
+
+participant_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=MY_INFO_BUTTON)],
+        [KeyboardButton(text=EVENING_MENU_BUTTON)],
+        [KeyboardButton(text=CONSULTATION_BUTTON)],
+        [KeyboardButton(text=BACK_BUTTON)],
+    ],
+    resize_keyboard=True,
+)
+
+admin_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=EXPORT_TODAY_BUTTON)],
+        [KeyboardButton(text=EXPORT_WEEK_BUTTON)],
+        [KeyboardButton(text=EXPORT_MONTH_BUTTON)],
+        [KeyboardButton(text=BROADCAST_BUTTON)],
+        [KeyboardButton(text=RESET_DB_BUTTON)],
+        [KeyboardButton(text=BACK_BUTTON)],
+    ],
+    resize_keyboard=True,
+)
+
+broadcast_confirm_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=BROADCAST_CONFIRM_BUTTON)],
+        [KeyboardButton(text=BROADCAST_CANCEL_BUTTON)],
+    ],
+    resize_keyboard=True,
+)
+
+
+# =========================
+# БОТ
+# =========================
+logging.basicConfig(level=logging.INFO)
+
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 
 
-# =========================
-# ОБРАБОТЧИКИ
-# =========================
-@dp.message(CommandStart())
-async def command_start(message: Message, state: FSMContext):
-    await state.clear()
 
-    existing = db.get_by_telegram_id(message.from_user.id)
-    if existing:
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
+
+
+@dp.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext):
+    await state.clear()
+    user = get_user_by_tg_id(message.from_user.id)
+    if user:
         await message.answer(
-            ALREADY_REGISTERED_TEMPLATE.format(number=existing[5]),
-            reply_markup=participant_menu_keyboard(),
+            ALREADY_REGISTERED_TEMPLATE.format(number=user["participant_number"]),
+            reply_markup=participant_kb,
         )
         return
 
-    await message.answer(
-        "Нажмите кнопку ниже, чтобы начать регистрацию.",
-        reply_markup=start_keyboard(is_admin(message.from_user.id)),
-    )
+    await message.answer("Нажмите кнопку ниже, чтобы начать.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
 
-@dp.message(Command("admin"))
-async def admin_command(message: Message, state: FSMContext):
-    await state.clear()
-    if not is_admin(message.from_user.id):
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-    await message.answer(ADMIN_MENU_TEXT, reply_markup=admin_menu_keyboard())
-
-
-@dp.message(F.text == "Старт")
+@dp.message(F.text == START_BUTTON)
 async def start_registration(message: Message, state: FSMContext):
-    existing = db.get_by_telegram_id(message.from_user.id)
-    if existing:
+    user = get_user_by_tg_id(message.from_user.id)
+    if user:
         await message.answer(
-            ALREADY_REGISTERED_TEMPLATE.format(number=existing[5]),
-            reply_markup=participant_menu_keyboard(),
+            ALREADY_REGISTERED_TEMPLATE.format(number=user["participant_number"]),
+            reply_markup=participant_kb,
         )
         return
 
     await message.answer(START_GREETING, reply_markup=ReplyKeyboardRemove())
-    await message.answer(ASK_NAME_TEXT)
-    await state.set_state(RegistrationStates.waiting_for_name)
+    await message.answer("Введите ваше имя:")
+    await state.set_state(Registration.waiting_for_name)
 
 
-@dp.message(RegistrationStates.waiting_for_name)
-async def process_name(message: Message, state: FSMContext):
+@dp.message(Registration.waiting_for_name)
+async def save_name(message: Message, state: FSMContext):
     name = (message.text or "").strip()
     if not name:
-        await message.answer(ASK_NAME_TEXT)
+        await message.answer("Пожалуйста, введите имя текстом.")
         return
 
     await state.update_data(full_name=name)
-    await message.answer(NAME_FOLLOWUP_TEMPLATE.format(name=name))
-    await message.answer(CONSENT_TEXT, reply_markup=consent_keyboard())
-    await state.set_state(RegistrationStates.waiting_for_consent)
+    await message.answer(NAME_TEXT_TEMPLATE.format(name=name))
+    await message.answer(CONSENT_TEXT, reply_markup=consent_kb)
+    await state.set_state(Registration.waiting_for_consent)
 
 
-@dp.message(RegistrationStates.waiting_for_consent, F.text == "Согласен(а)")
-async def consent_accepted(message: Message, state: FSMContext):
-    await state.update_data(consent_given=True)
-    await message.answer(ASK_PHONE_TEXT, reply_markup=phone_keyboard())
-    await state.set_state(RegistrationStates.waiting_for_phone)
-
-
-@dp.message(RegistrationStates.waiting_for_consent, F.text == "Не согласен(а)")
-async def consent_declined(message: Message, state: FSMContext):
+@dp.message(Registration.waiting_for_consent, F.text == CONSENT_DECLINE_BUTTON)
+async def decline_consent(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
-        DECLINED_TEXT,
-        reply_markup=start_keyboard(is_admin(message.from_user.id)),
+        "Без согласия на обработку персональных данных регистрация невозможна.",
+        reply_markup=start_kb(is_admin(message.from_user.id)),
     )
 
 
-@dp.message(RegistrationStates.waiting_for_consent)
-async def consent_fallback(message: Message):
-    await message.answer("Пожалуйста, выберите один из вариантов согласия.")
+@dp.message(Registration.waiting_for_consent, F.text == CONSENT_ACCEPT_BUTTON)
+async def accept_consent(message: Message, state: FSMContext):
+    await message.answer("Отправьте, пожалуйста, номер телефона.", reply_markup=phone_kb)
+    await state.set_state(Registration.waiting_for_phone)
 
 
-@dp.message(RegistrationStates.waiting_for_phone)
-async def process_phone(message: Message, state: FSMContext):
+@dp.message(Registration.waiting_for_consent)
+async def wrong_consent(message: Message):
+    await message.answer("Пожалуйста, выберите один из вариантов согласия кнопкой ниже.")
+
+
+@dp.message(Registration.waiting_for_phone)
+async def save_phone(message: Message, state: FSMContext):
     if not message.contact:
-        await message.answer(CONTACT_REQUIRED_TEXT, reply_markup=phone_keyboard())
+        await message.answer("Пожалуйста, используйте кнопку «Отправить номер телефона».")
         return
 
-    if message.contact.user_id and message.contact.user_id != message.from_user.id:
-        await message.answer("Нужно отправить свой номер телефона.", reply_markup=phone_keyboard())
+    contact = message.contact
+    if contact.user_id and contact.user_id != message.from_user.id:
+        await message.answer("Пожалуйста, отправьте свой номер телефона, а не чужой.")
         return
 
-    existing_user = db.get_by_telegram_id(message.from_user.id)
-    if existing_user:
+    existing_by_user = get_user_by_tg_id(message.from_user.id)
+    if existing_by_user:
         await state.clear()
         await message.answer(
-            ALREADY_REGISTERED_TEMPLATE.format(number=existing_user[5]),
-            reply_markup=participant_menu_keyboard(),
+            ALREADY_REGISTERED_TEMPLATE.format(number=existing_by_user["participant_number"]),
+            reply_markup=participant_kb,
         )
         return
 
-    phone = normalize_phone(message.contact.phone_number)
-    existing_phone = db.get_by_phone(phone)
-    if existing_phone:
-        await message.answer(PHONE_ALREADY_USED_TEXT, reply_markup=participant_menu_keyboard())
+    phone = normalize_phone(contact.phone_number)
+    existing_by_phone = get_user_by_phone(phone)
+    if existing_by_phone:
+        await message.answer(
+            "Этот номер телефона уже есть в базе. Один человек не может иметь два номера.",
+            reply_markup=start_kb(is_admin(message.from_user.id)),
+        )
         await state.clear()
         return
 
     data = await state.get_data()
-    participant_number = db.create_participant(
-        telegram_user_id=message.from_user.id,
-        telegram_username=message.from_user.username,
-        full_name=data["full_name"],
+    full_name = data.get("full_name", "Без имени")
+    number = create_user(
+        tg_id=message.from_user.id,
+        username=message.from_user.username,
+        full_name=full_name,
         phone=phone,
-        consent_given=True,
     )
+
+    await state.clear()
+    await message.answer(REG_SUCCESS_TEMPLATE.format(number=number), reply_markup=participant_kb)
+
+
+@dp.message(F.text == MY_INFO_BUTTON)
+async def my_info(message: Message):
+    user = get_user_by_tg_id(message.from_user.id)
+    if not user:
+        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
+        return
+
+    await message.answer(
+        INFO_TEMPLATE.format(
+            name=user["full_name"],
+            phone=user["phone"],
+            number=user["participant_number"],
+            created_at=user["created_at"],
+        )
+    )
+
+
+@dp.message(F.text == EVENING_MENU_BUTTON)
+async def send_menu(message: Message):
+    path = Path(MENU_IMAGE_PATH)
+    if not path.exists():
+        await message.answer("Файл меню не найден. Положите картинку по пути assets/menu.jpg")
+        return
+    await message.answer_photo(FSInputFile(path), caption="Меню на сегодняшний вечер")
+
+
+@dp.message(F.text == CONSULTATION_BUTTON)
+async def consultation(message: Message):
+    await message.answer(CONSULTATION_TEXT)
+
+
+@dp.message(F.text == BACK_BUTTON)
+async def go_back(message: Message, state: FSMContext):
+    await state.clear()
+    user = get_user_by_tg_id(message.from_user.id)
+    if user:
+        await message.answer("Главное меню участника.", reply_markup=participant_kb)
+    else:
+        await message.answer("Главное меню.", reply_markup=start_kb(is_admin(message.from_user.id)))
+
+
+@dp.message(F.text == ADMIN_MENU_BUTTON)
+@dp.message(Command("admin"))
+async def admin_menu(message: Message, state: FSMContext):
+    await state.clear()
+    if not is_admin(message.from_user.id):
+        await message.answer("Эта команда доступна только администратору.")
+        return
+    await message.answer("Админ меню. Выберите действие.", reply_markup=admin_kb)
+
+
+async def process_export(message: Message, period: str):
+    if not is_admin(message.from_user.id):
+        await message.answer("Эта команда доступна только администратору.")
+        return
+
+    file_path = export_to_excel(period)
+    if file_path is None:
+        await message.answer("За выбранный период зарегистрированных участников нет.")
+        return
+
+    await message.answer_document(FSInputFile(file_path), caption=f"Выгрузка: {period}")
+
+
+@dp.message(F.text == EXPORT_TODAY_BUTTON)
+async def export_today(message: Message):
+    await process_export(message, "today")
+
+
+@dp.message(F.text == EXPORT_WEEK_BUTTON)
+async def export_week(message: Message):
+    await process_export(message, "week")
+
+
+@dp.message(F.text == EXPORT_MONTH_BUTTON)
+async def export_month(message: Message):
+    await process_export(message, "month")
+
+
+@dp.message(F.text == RESET_DB_BUTTON)
+async def ask_reset_password(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        await message.answer("Эта команда доступна только администратору.")
+        return
+    await message.answer("Введите пароль для сброса базы.")
+    await state.set_state(AdminReset.waiting_for_password)
+
+
+@dp.message(AdminReset.waiting_for_password)
+async def confirm_reset(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        await state.clear()
+        await message.answer("Эта команда доступна только администратору.")
+        return
+
+    if message.text == RESET_PASSWORD:
+        reset_db()
+        await message.answer("База данных очищена.", reply_markup=admin_kb)
+    else:
+        await message.answer("Неверный пароль. Ресет отменён.", reply_markup=admin_kb)
+    await state.clear()
+
+
+@dp.message(F.text == BROADCAST_BUTTON)
+async def broadcast_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        await message.answer("Эта команда доступна только администратору.")
+        return
+
+    await state.set_state(AdminBroadcast.waiting_for_content)
+    await message.answer(
+        "Отправьте сообщение для рассылки.\n\n"
+        "Можно отправить:\n"
+        "- обычный текст\n"
+        "- фото с подписью\n\n"
+        "После этого я покажу предпросмотр и спрошу подтверждение.",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text=BROADCAST_CANCEL_BUTTON)]],
+            resize_keyboard=True,
+        ),
+    )
+
+
+@dp.message(AdminBroadcast.waiting_for_content, F.text == BROADCAST_CANCEL_BUTTON)
+async def broadcast_cancel_from_input(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Рассылка отменена.", reply_markup=admin_kb)
+
+
+@dp.message(AdminBroadcast.waiting_for_content)
+async def broadcast_preview(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        await state.clear()
+        await message.answer("Эта команда доступна только администратору.")
+        return
+
+    data_to_store: dict[str, str] = {}
+
+    if message.photo:
+        photo = message.photo[-1]
+        data_to_store = {
+            "type": "photo",
+            "photo_file_id": photo.file_id,
+            "caption": message.caption or "",
+        }
+        await message.answer("Предпросмотр рассылки:")
+        await message.answer_photo(photo.file_id, caption=message.caption or "")
+
+    elif message.text:
+        text = message.text.strip()
+        if not text:
+            await message.answer("Пустое сообщение. Отправьте текст или фото с подписью.")
+            return
+        data_to_store = {
+            "type": "text",
+            "text": text,
+        }
+        await message.answer("Предпросмотр рассылки:")
+        await message.answer(text)
+
+    else:
+        await message.answer("Поддерживается только текст или фото с подписью.")
+        return
+
+    await state.update_data(**data_to_store)
+    await state.set_state(AdminBroadcast.waiting_for_confirmation)
+    await message.answer(
+        "Подтвердить рассылку?",
+        reply_markup=broadcast_confirm_kb,
+    )
+
+
+@dp.message(AdminBroadcast.waiting_for_confirmation, F.text == BROADCAST_CANCEL_BUTTON)
+async def broadcast_cancel_from_confirm(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Рассылка отменена.", reply_markup=admin_kb)
+
+
+@dp.message(AdminBroadcast.waiting_for_confirmation, F.text == BROADCAST_CONFIRM_BUTTON)
+async def broadcast_send(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        await state.clear()
+        await message.answer("Эта команда доступна только администратору.")
+        return
+
+    user_ids = get_all_user_ids()
+    if not user_ids:
+        await state.clear()
+        await message.answer("В базе нет зарегистрированных участников.", reply_markup=admin_kb)
+        return
+
+    data = await state.get_data()
+    send_type = data.get("type")
+
+    success_count = 0
+    failed_count = 0
+
+    for user_id in user_ids:
+        try:
+            if send_type == "photo":
+                await bot.send_photo(
+                    chat_id=user_id,
+                    photo=data["photo_file_id"],
+                    caption=data.get("caption", ""),
+                )
+            else:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=data.get("text", ""),
+                )
+            success_count += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            failed_count += 1
 
     await state.clear()
     await message.answer(
-        REG_SUCCESS_TEMPLATE.format(number=participant_number),
-        reply_markup=participant_menu_keyboard(),
+        "Рассылка завершена.\n"
+        f"Успешно отправлено: {success_count}\n"
+        f"Не доставлено: {failed_count}",
+        reply_markup=admin_kb,
     )
 
 
-@dp.message(F.text == "Моя информация")
-async def my_info(message: Message):
-    row = db.get_by_telegram_id(message.from_user.id)
-    if not row:
-        await message.answer(
-            "Вы еще не зарегистрированы.",
-            reply_markup=start_keyboard(is_admin(message.from_user.id)),
-        )
-        return
-
-    await message.answer(participant_info_text(row), reply_markup=participant_menu_keyboard())
-
-
-@dp.message(F.text == "Меню вечера")
-async def evening_menu(message: Message):
-    if not Path(MENU_IMAGE_PATH).exists():
-        await message.answer(NO_MENU_IMAGE_TEXT, reply_markup=participant_menu_keyboard())
-        return
-
-    await message.answer_photo(
-        photo=FSInputFile(MENU_IMAGE_PATH),
-        caption=MENU_CAPTION,
-        reply_markup=participant_menu_keyboard(),
+@dp.message(AdminBroadcast.waiting_for_confirmation)
+async def broadcast_wrong_confirmation(message: Message):
+    await message.answer(
+        "Используйте кнопки ниже: отправить всем или отменить рассылку.",
+        reply_markup=broadcast_confirm_kb,
     )
-
-
-@dp.message(F.text == "Запись на личную консультацию")
-async def consultation(message: Message):
-    await message.answer(CONSULTATION_TEXT, reply_markup=participant_menu_keyboard())
-
-
-@dp.message(F.text == "Назад")
-async def back_button(message: Message, state: FSMContext):
-    await state.clear()
-
-    existing = db.get_by_telegram_id(message.from_user.id)
-    if existing:
-        await message.answer("Возвращаю вас в меню участника.", reply_markup=participant_menu_keyboard())
-        return
-
-    if is_admin(message.from_user.id):
-        await message.answer("Возвращаю вас в стартовое меню.", reply_markup=start_keyboard(True))
-        return
-
-    await message.answer("Возвращаю вас в стартовое меню.", reply_markup=start_keyboard(False))
-
-
-@dp.message(F.text == "Админ меню")
-async def open_admin_menu(message: Message, state: FSMContext):
-    await state.clear()
-    if not is_admin(message.from_user.id):
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-    await message.answer(ADMIN_MENU_TEXT, reply_markup=admin_menu_keyboard())
-
-
-@dp.message(F.text == "Выгрузка: сегодня")
-async def export_today(message: Message):
-    if not is_admin(message.from_user.id):
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-
-    rows = db.list_for_period("today")
-    if not rows:
-        await message.answer(EXPORT_EMPTY_TEXT)
-        return
-
-    file_path = export_to_excel(rows, "today")
-    await message.answer_document(FSInputFile(file_path), caption="Выгрузка за сегодня.")
-
-
-@dp.message(F.text == "Выгрузка: за неделю")
-async def export_week(message: Message):
-    if not is_admin(message.from_user.id):
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-
-    rows = db.list_for_period("week")
-    if not rows:
-        await message.answer(EXPORT_EMPTY_TEXT)
-        return
-
-    file_path = export_to_excel(rows, "week")
-    await message.answer_document(FSInputFile(file_path), caption="Выгрузка за неделю.")
-
-
-@dp.message(F.text == "Выгрузка: за месяц")
-async def export_month(message: Message):
-    if not is_admin(message.from_user.id):
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-
-    rows = db.list_for_period("month")
-    if not rows:
-        await message.answer(EXPORT_EMPTY_TEXT)
-        return
-
-    file_path = export_to_excel(rows, "month")
-    await message.answer_document(FSInputFile(file_path), caption="Выгрузка за месяц.")
-
-
-@dp.message(F.text == "Ресет базы")
-async def ask_reset_password(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-
-    await message.answer(RESET_PROMPT_TEXT)
-    await state.set_state(AdminStates.waiting_for_reset_password)
-
-
-@dp.message(AdminStates.waiting_for_reset_password)
-async def process_reset_password(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
-        await state.clear()
-        await message.answer(ADMIN_ONLY_TEXT)
-        return
-
-    if (message.text or "").strip() == RESET_PASSWORD:
-        db.reset()
-        await message.answer(RESET_SUCCESS_TEXT, reply_markup=admin_menu_keyboard())
-    else:
-        await message.answer(RESET_FAILED_TEXT, reply_markup=admin_menu_keyboard())
-
-    await state.clear()
 
 
 @dp.message()
 async def fallback(message: Message):
-    existing = db.get_by_telegram_id(message.from_user.id)
-    if existing:
-        await message.answer(UNKNOWN_TEXT, reply_markup=participant_menu_keyboard())
+    user = get_user_by_tg_id(message.from_user.id)
+    if user:
+        await message.answer("Используйте кнопки меню ниже.", reply_markup=participant_kb)
     else:
-        await message.answer(
-            UNKNOWN_TEXT,
-            reply_markup=start_keyboard(is_admin(message.from_user.id)),
-        )
+        await message.answer("Нажмите /start для начала работы.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
 
 async def main():
-    print("Бот запущен...")
+    init_db()
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     await dp.start_polling(bot)
 
 
