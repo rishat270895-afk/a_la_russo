@@ -17,10 +17,10 @@ from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMar
 # =========================
 # НАСТРОЙКИ
 # =========================
-BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
-ADMIN_IDS = {123456789}
+BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
+ADMIN_IDS = {922603146}
 RESET_PASSWORD = "1234"
-CONSULTATION_TEXT = "Для записи на личную консультацию обратитесь по номеру: +7 (900) 000-00-00"
+CONSULTATION_TEXT = "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию: +79660316371 Диана"
 MENU_IMAGE_PATH = "assets/menu.jpg"
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
