@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# База данных
+*.db
+*.sqlite3
+
+# Excel файлы
+*.xlsx
+
+# Виртуальное окружение
+.venv/
+venv/
+
+# Системные файлы
+.DS_Store
