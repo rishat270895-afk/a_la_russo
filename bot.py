@@ -17,8 +17,8 @@ from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMar
 # =========================
 # НАСТРОЙКИ
 # =========================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = {922603146}
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
 RESET_PASSWORD = "1234"
 CONSULTATION_TEXT = "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию: +79660316371 Диана"
 MENU_IMAGE_PATH = "assets/menu.jpg"
@@ -30,7 +30,7 @@ EXPORTS_DIR = Path("exports")
 # =========================
 START_BUTTON = "Старт"
 MY_INFO_BUTTON = "Моя информация"
-EVENING_MENU_BUTTON = "Меню вечера"
+EVENING_MENU_BUTTON = "Меню"
 CONSULTATION_BUTTON = "Запись на личную консультацию"
 BACK_BUTTON = "Назад"
 
@@ -61,12 +61,6 @@ NAME_TEXT_TEMPLATE = (
 CONSENT_TEXT = (
     "Пожалуйста, подтвердите согласие на обработку персональных данных. "
     "После этого отправьте номер телефона."
-)
-
-REG_SUCCESS_TEMPLATE = (
-    "Регистрация успешно завершена.\n"
-    "Ваш уникальный номер участника: <b>№{number}</b>.\n"
-    "Добро пожаловать на вечер."
 )
 
 ALREADY_REGISTERED_TEMPLATE = (
@@ -402,7 +396,7 @@ async def save_phone(message: Message, state: FSMContext):
 
     data = await state.get_data()
     full_name = data.get("full_name", "Без имени")
-    number = create_user(
+    create_user(
         tg_id=message.from_user.id,
         username=message.from_user.username,
         full_name=full_name,
@@ -410,7 +404,13 @@ async def save_phone(message: Message, state: FSMContext):
     )
 
     await state.clear()
-    await message.answer(REG_SUCCESS_TEMPLATE.format(number=number), reply_markup=participant_kb)
+    path = Path(MENU_IMAGE_PATH)
+    if path.exists():
+        await message.answer_photo(FSInputFile(path), caption="Меню сегодняшнего вечера")
+    else:
+        await message.answer("Файл меню не найден. Положите картинку по пути assets/menu.jpg")
+
+    await message.answer(CONSULTATION_TEXT, reply_markup=participant_kb)
 
 
 @dp.message(F.text == MY_INFO_BUTTON)
@@ -436,7 +436,7 @@ async def send_menu(message: Message):
     if not path.exists():
         await message.answer("Файл меню не найден. Положите картинку по пути assets/menu.jpg")
         return
-    await message.answer_photo(FSInputFile(path), caption="Меню на сегодняшний вечер")
+    await message.answer_photo(FSInputFile(path), caption="Меню сегодняшнего вечера")
 
 
 @dp.message(F.text == CONSULTATION_BUTTON)
