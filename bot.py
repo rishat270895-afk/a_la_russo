@@ -17,9 +17,9 @@ from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMar
 # =========================
 # НАСТРОЙКИ
 # =========================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
 CONSULTATION_TEXT = "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию: +79660316371 Диана"
 MENU_IMAGE_PATH = "assets/menu.jpg"
 DB_PATH = "database.db"
@@ -355,8 +355,12 @@ async def decline_consent(message: Message, state: FSMContext):
 
 @dp.message(Registration.waiting_for_consent, F.text == CONSENT_ACCEPT_BUTTON)
 async def accept_consent(message: Message, state: FSMContext):
-    await message.answer("Отправьте, пожалуйста, номер телефона.", reply_markup=phone_kb)
+    await state.update_data(consent_given=True)
     await state.set_state(Registration.waiting_for_phone)
+    await message.answer(
+        "Пожалуйста, нажмите кнопку ниже и отправьте номер телефона.",
+        reply_markup=phone_kb,
+    )
 
 
 @dp.message(Registration.waiting_for_consent)
