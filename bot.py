@@ -17,10 +17,10 @@ from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarku
 # =========================
 # НАСТРОЙКИ
 # =========================
-BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
-ADMIN_IDS = {123456789}
-RESET_PASSWORD = "1234"
-CONSULTATION_TEXT = "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию: +79660316371 Диана"
+BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
+ADMIN_IDS = {922603146}
+RESET_PASSWORD = "12345678"
+CONSULTATION_TEXT = "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию?"
 MENU_DESCRIPTION_TEXT = "Голод - враг искусства! Перейдем к меню на ужин? Вы только посмотрите, какое обилие угощений Вас ждет впереди!"
 MEETING_LINK = "https://t.me/bulygina_diana"
 MENU_IMAGE_PATH = "assets/menu.jpg"
@@ -53,7 +53,7 @@ START_GREETING = (
 )
 
 NAME_TEXT_TEMPLATE = (
-    '«{name}», ох, сколько Вас сегодня ждет впереди! '
+    '{name}, ох, сколько Вас сегодня ждет впереди! '
     'Вечер наполнен изысканными угощениями, подарками, сюрпризами, танцами, музыкой '
     'и даже… мистикой! А для того, чтобы подарок нашел своего адресата, важно получить контакт.'
 )
