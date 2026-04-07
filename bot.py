@@ -12,15 +12,17 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 # =========================
 # НАСТРОЙКИ
 # =========================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
 CONSULTATION_TEXT = "А Вы готовы к знакомству с Сочи по-настоящему? Тогда ждём Вас на консультацию: +79660316371 Диана"
+MENU_DESCRIPTION_TEXT = "Голод - враг искусства! Перейдем к меню на ужин? Вы только посмотрите, какое обилие угощений Вас ждет впереди!"
+MEETING_LINK = "https://t.me/bulygina_diana"
 MENU_IMAGE_PATH = "assets/menu.jpg"
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
@@ -29,9 +31,7 @@ EXPORTS_DIR = Path("exports")
 # ТЕКСТЫ И КНОПКИ
 # =========================
 START_BUTTON = "Старт"
-MY_INFO_BUTTON = "Моя информация"
-EVENING_MENU_BUTTON = "Меню"
-CONSULTATION_BUTTON = "Запись на личную консультацию"
+MEETING_BUTTON = "Прийти на встречу"
 BACK_BUTTON = "Назад"
 
 CONSENT_ACCEPT_BUTTON = "Согласен(а)"
@@ -53,7 +53,7 @@ START_GREETING = (
 )
 
 NAME_TEXT_TEMPLATE = (
-    '{name}, ох, сколько Вас сегодня ждет впереди! '
+    '«{name}», ох, сколько Вас сегодня ждет впереди! '
     'Вечер наполнен изысканными угощениями, подарками, сюрпризами, танцами, музыкой '
     'и даже… мистикой! А для того, чтобы подарок нашел своего адресата, важно получить контакт.'
 )
@@ -257,14 +257,8 @@ phone_kb = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-participant_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=MY_INFO_BUTTON)],
-        [KeyboardButton(text=EVENING_MENU_BUTTON)],
-        [KeyboardButton(text=CONSULTATION_BUTTON)],
-        [KeyboardButton(text=BACK_BUTTON)],
-    ],
-    resize_keyboard=True,
+meeting_kb = InlineKeyboardMarkup(
+    inline_keyboard=[[InlineKeyboardButton(text=MEETING_BUTTON, url=MEETING_LINK)]]
 )
 
 admin_kb = ReplyKeyboardMarkup(
@@ -309,7 +303,7 @@ async def cmd_start(message: Message, state: FSMContext):
     if user:
         await message.answer(
             ALREADY_REGISTERED_TEMPLATE.format(number=user["participant_number"]),
-            reply_markup=participant_kb,
+            reply_markup=meeting_kb,
         )
         return
 
@@ -322,7 +316,7 @@ async def start_registration(message: Message, state: FSMContext):
     if user:
         await message.answer(
             ALREADY_REGISTERED_TEMPLATE.format(number=user["participant_number"]),
-            reply_markup=participant_kb,
+            reply_markup=meeting_kb,
         )
         return
 
@@ -384,7 +378,7 @@ async def save_phone(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(
             ALREADY_REGISTERED_TEMPLATE.format(number=existing_by_user["participant_number"]),
-            reply_markup=participant_kb,
+            reply_markup=meeting_kb,
         )
         return
 
@@ -410,42 +404,11 @@ async def save_phone(message: Message, state: FSMContext):
     await state.clear()
     path = Path(MENU_IMAGE_PATH)
     if path.exists():
-        await message.answer_photo(FSInputFile(path), caption="Меню сегодняшнего вечера")
+        await message.answer_photo(FSInputFile(path), caption=MENU_DESCRIPTION_TEXT)
     else:
         await message.answer("Файл меню не найден. Положите картинку по пути assets/menu.jpg")
 
-    await message.answer(CONSULTATION_TEXT, reply_markup=participant_kb)
-
-
-@dp.message(F.text == MY_INFO_BUTTON)
-async def my_info(message: Message):
-    user = get_user_by_tg_id(message.from_user.id)
-    if not user:
-        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
-        return
-
-    await message.answer(
-        INFO_TEMPLATE.format(
-            name=user["full_name"],
-            phone=user["phone"],
-            number=user["participant_number"],
-            created_at=user["created_at"],
-        )
-    )
-
-
-@dp.message(F.text == EVENING_MENU_BUTTON)
-async def send_menu(message: Message):
-    path = Path(MENU_IMAGE_PATH)
-    if not path.exists():
-        await message.answer("Файл меню не найден. Положите картинку по пути assets/menu.jpg")
-        return
-    await message.answer_photo(FSInputFile(path), caption="Меню сегодняшнего вечера")
-
-
-@dp.message(F.text == CONSULTATION_BUTTON)
-async def consultation(message: Message):
-    await message.answer(CONSULTATION_TEXT)
+    await message.answer(CONSULTATION_TEXT, reply_markup=meeting_kb)
 
 
 @dp.message(F.text == BACK_BUTTON)
@@ -453,7 +416,7 @@ async def go_back(message: Message, state: FSMContext):
     await state.clear()
     user = get_user_by_tg_id(message.from_user.id)
     if user:
-        await message.answer("Главное меню участника.", reply_markup=participant_kb)
+        await message.answer(CONSULTATION_TEXT, reply_markup=meeting_kb)
     else:
         await message.answer("Главное меню.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
@@ -653,7 +616,7 @@ async def broadcast_wrong_confirmation(message: Message):
 async def fallback(message: Message):
     user = get_user_by_tg_id(message.from_user.id)
     if user:
-        await message.answer("Используйте кнопки меню ниже.", reply_markup=participant_kb)
+        await message.answer(CONSULTATION_TEXT, reply_markup=meeting_kb)
     else:
         await message.answer("Нажмите /start для начала работы.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
