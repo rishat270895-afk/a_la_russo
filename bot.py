@@ -402,7 +402,7 @@ async def run_story_until_consent(message: Message, state: FSMContext, name: str
     await message.answer(SOCHI_TEXT)
     await safe_send_photo(message, SOCHI_INTRO_IMAGE)
     await safe_send_audio(message, LEGEND_AUDIO)
-    await message.answer("Как Вы думаете?", reply_markup=legend_answer_kb)
+    await message.answer(" ", reply_markup=legend_answer_kb)
     await state.set_state(Registration.waiting_for_legend_answer)
 
 
