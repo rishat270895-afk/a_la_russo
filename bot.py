@@ -2,69 +2,69 @@ import asyncio
 import logging
 import os
 import sqlite3
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+from aiogram.enums import ContentType, ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
-    CallbackQuery,
     FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 
 # =========================================================
-# НАСТРОЙКИ — ЗАМЕНИТЕ ПОД СЕБЯ
+# НАСТРОЙКИ
 # =========================================================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
-CONTACT_URL = "https://t.me/nikaestate_sochi"
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "database.db"
-EXPORTS_DIR = BASE_DIR / "exports"
-ASSETS_DIR = BASE_DIR / "assets"
+# Ссылка для кнопки "СВЯЗАТЬСЯ"
+CONTACT_URL = "https://t.me/bulygina_diana"
 
-# ФАЙЛЫ: загрузите их в /opt/bot/assets/ с такими именами
+DB_PATH = "database.db"
+EXPORTS_DIR = Path("exports")
+ASSETS_DIR = Path("assets")
+
+# Файлы в папке assets
 TIMING_IMAGE = ASSETS_DIR / "timing.png"
 MENU_IMAGE = ASSETS_DIR / "menu.png"
-SOCHI_IMAGE = ASSETS_DIR / "sochi_intro.png"
+SOCHI_INTRO_IMAGE = ASSETS_DIR / "sochi_intro.png"
 LEGEND_AUDIO = ASSETS_DIR / "legend_audio.mp3"
 VELVET_SEASON_IMAGE = ASSETS_DIR / "velvet_season.png"
 COMPANY_IMAGE = ASSETS_DIR / "company.png"
-SOCHI_VIDEO = ASSETS_DIR / "sochi_video.mp4"
 SOCHI_PRESENTATION = ASSETS_DIR / "sochi_presentation.pdf"
-MANAGEMENT_IMAGE_1 = ASSETS_DIR / "management_1.png"
-MANAGEMENT_IMAGE_2 = ASSETS_DIR / "management_2.png"
+MANAGEMENT_1 = ASSETS_DIR / "management_1.png"
+MANAGEMENT_2 = ASSETS_DIR / "management_2.png"
 CONTACT_IMAGE = ASSETS_DIR / "contact.png"
 
 # =========================================================
-# ТЕКСТЫ / КНОПКИ
+# ТЕКСТЫ И КНОПКИ
 # =========================================================
 START_BUTTON = "Старт"
-BACK_BUTTON = "Назад"
-
 CONSENT_ACCEPT_BUTTON = "Согласен(а)"
 CONSENT_DECLINE_BUTTON = "Не согласен(а)"
 SEND_PHONE_BUTTON = "Отправить номер телефона"
+BACK_BUTTON = "Назад"
 
-PARTICIPANT_COMPANY = "О КОМПАНИИ"
-PARTICIPANT_SOCHI = "СОЧИ"
-PARTICIPANT_MANAGEMENT = "РУКОВОДСТВО"
-PARTICIPANT_CONTACT = "СВЯЗАТЬСЯ"
+YES_BUTTON = "ДА"
+NO_BUTTON = "НЕТ"
+
+ABOUT_COMPANY_BUTTON = "О КОМПАНИИ"
+SOCHI_BUTTON = "СОЧИ"
+MANAGEMENT_BUTTON = "РУКОВОДСТВО"
+CONTACT_BUTTON = "СВЯЗАТЬСЯ"
 
 ADMIN_MENU_BUTTON = "Админ меню"
 EXPORT_TODAY_BUTTON = "Выгрузка: сегодня"
@@ -72,11 +72,8 @@ EXPORT_WEEK_BUTTON = "Выгрузка: неделя"
 EXPORT_MONTH_BUTTON = "Выгрузка: месяц"
 RESET_DB_BUTTON = "Ресет базы"
 BROADCAST_BUTTON = "Рассылка"
-
-YES_BUTTON = "ДА"
-NO_BUTTON = "НЕТ"
-CONFIRM_BROADCAST_BUTTON = "Отправить всем"
-CANCEL_BROADCAST_BUTTON = "Отменить рассылку"
+BROADCAST_SEND_BUTTON = "Отправить всем"
+BROADCAST_CANCEL_BUTTON = "Отменить рассылку"
 
 START_GREETING = (
     "Добрый вечер, уважаемый пассажир эксклюзивного экспресса «Бархатный путь»! "
@@ -86,51 +83,76 @@ START_GREETING = (
 ASK_NAME = "Пожалуйста, введите ваше имя."
 
 NAME_TEXT_TEMPLATE = (
-    "{name}, ох, сколько Вас сегодня ждет впереди! Вечер наполнен изысканными угощениями, "
-    "подарками, сюрпризами, танцами, музыкой и даже… мистикой!"
+    "{name}, ох, сколько Вас сегодня ждет впереди! "
+    "Вечер наполнен изысканными угощениями, подарками, сюрпризами, танцами, музыкой и даже… мистикой!"
 )
 
 TIMING_CAPTION = "Как видите, остановки предусмотрены, за это не переживайте"
+
 MENU_CAPTION = (
-    "Голод - враг искусства! Перейдем к меню на ужин? Вы только посмотрите, какое обилие "
-    "угощений Вас ждет впереди!"
+    "Голод - враг искусства! Перейдем к меню на ужин? "
+    "Вы только посмотрите, какое обилие угощений Вас ждет впереди!"
 )
+
 SOCHI_TEXT = (
-    "А Вы бывали в Сочи? Просто представьте: шум моря, запах цветущих магнолий и прибой "
-    "Черного моря… А знаете ли вы легенду о бархатном сезоне?"
+    "А Вы бывали в Сочи? Просто представьте: шум моря, запах цветущих магнолий "
+    "и прибой Черного моря… А знаете ли вы легенду о бархатном сезоне?"
 )
-LEGEND_TEXT = (
-    "В конце XIX – начале XX века русская аристократия отдыхала в Крыму не летом, а в апреле-мае, "
-    "сменяя меховые одежды на бархатные, что изначально дало название сезону. И только сильно позже "
-    "сезон сместился на начало осени из-за рекомендаций врачей"
+
+VELVET_HISTORY_TEXT = (
+    "В конце XIX – начале XX века русская аристократия отдыхала в Крыму не летом, "
+    "а в апреле-мае, сменяя меховые одежды на бархатные, что изначально дало название сезону. "
+    "И только сильно позже сезон сместился на начало осени из-за рекомендаций врачей"
 )
-TODAY_HISTORY_TEXT = (
+
+VELVET_NEXT_TEXT = (
     "Сегодня окунемся в истории бархатного сезона, и Вы сможете стать свидетелями событий того времени…"
 )
-CONSENT_TEXT = (
-    "Пожалуйста, подтвердите согласие на обработку персональных данных, чтобы мы могли завершить регистрацию."
-)
-ASK_PHONE_TEXT = "Пожалуйста, нажмите кнопку ниже и отправьте номер телефона."
-DECLINE_CONSENT_TEXT = "Без согласия на обработку персональных данных регистрация невозможна."
-PHOTOS_VIDEO_TEXT = "Фотографии и видео с сегодняшнего события мы вышлем Вам здесь, поэтому не переключайтесь"
 
-COMPANY_CAPTION = (
+CONSENT_TEXT = (
+    "Пожалуйста, подтвердите согласие на обработку персональных данных."
+)
+
+ASK_PHONE_TEXT = "Пожалуйста, нажмите кнопку ниже и отправьте номер телефона."
+
+AFTER_REGISTRATION_TEXT = (
+    "Фотографии и видео с сегодняшнего события мы вышлем Вам здесь, поэтому не переключайтесь"
+)
+
+ALREADY_REGISTERED_TEXT = (
+    "Вы уже зарегистрированы. Ниже доступно меню участника."
+)
+
+ABOUT_COMPANY_CAPTION = (
     "Международное агентство недвижимости NIKA ESTATE\n\n"
     "С 2013 года сопровождаем сделки в премиальном сегменте.\n"
     "Входим в международную ассоциацию AREA.\n\n"
     "Только лучшие предложения на рынке\n"
     "недвижимости в России и за рубежом.\n\n"
     "Семейная резиденция, коммерческий объект, точка выхода на новый рынок или актив с понятной доходностью – "
-    "любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, в котором важны детали, "
-    "конфиденциальность и результат.\n\n"
+    "любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, "
+    "в котором важны детали, конфиденциальность и результат.\n\n"
     "NIKA ESTATE – ваш доступ к миру премиальной недвижимости в России и за рубежом."
 )
 
-CONTACT_TEXT = "Чтобы связаться с нами, нажмите кнопку ниже."
-MISSING_FILE_TEXT_TEMPLATE = "Файл не найден: {filename}"
-PHONE_ALREADY_USED_TEXT = "Этот номер уже есть в базе. Один человек не может получить два номера."
-ALREADY_REGISTERED_TEXT = "Вы уже зарегистрированы. Ниже доступны материалы и кнопки." 
-UNKNOWN_TEXT = "Используйте кнопки меню ниже."
+SOCHI_LINK_TEXT = "Посмотреть видео:\nhttps://disk.yandex.ru/i/F-zO0e8e--pcAA"
+
+CONTACT_TEXT = "Для связи перейдите по ссылке ниже."
+
+ADMIN_ONLY_TEXT = "Эта команда доступна только администратору."
+UNKNOWN_TEXT = "Используйте кнопки меню."
+EXPORT_EMPTY_TEXT = "За выбранный период зарегистрированных участников нет."
+RESET_PASSWORD_TEXT = "Введите пароль для сброса базы."
+RESET_SUCCESS_TEXT = "База данных очищена."
+RESET_FAILED_TEXT = "Неверный пароль. Ресет отменён."
+
+BROADCAST_PROMPT_TEXT = (
+    "Отправьте сообщение для рассылки.\n"
+    "Можно отправить обычный текст или фото с подписью."
+)
+BROADCAST_PREVIEW_TEXT = "Предпросмотр рассылки. Выберите действие:"
+BROADCAST_DONE_TEXT = "Рассылка завершена.\nУспешно: {ok}\nНе доставлено: {bad}"
+BROADCAST_CANCELLED_TEXT = "Рассылка отменена."
 
 # =========================================================
 # СОСТОЯНИЯ
@@ -147,14 +169,13 @@ class AdminReset(StatesGroup):
 
 
 class AdminBroadcast(StatesGroup):
-    waiting_for_message = State()
-    waiting_for_confirmation = State()
+    waiting_for_content = State()
+    waiting_for_confirm = State()
 
 
 # =========================================================
 # БАЗА
 # =========================================================
-
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -162,8 +183,6 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     with get_connection() as conn:
         conn.execute(
             """
@@ -195,13 +214,21 @@ def get_user_by_phone(phone: str):
         return conn.execute("SELECT * FROM participants WHERE phone = ?", (phone,)).fetchone()
 
 
+def get_all_user_ids() -> list[int]:
+    with get_connection() as conn:
+        rows = conn.execute("SELECT tg_id FROM participants").fetchall()
+        return [int(row["tg_id"]) for row in rows]
+
+
 def get_next_number() -> int:
     with get_connection() as conn:
         row = conn.execute("SELECT MAX(participant_number) AS max_num FROM participants").fetchone()
-        return 1 if row is None or row["max_num"] is None else int(row["max_num"]) + 1
+        if row is None or row["max_num"] is None:
+            return 1
+        return int(row["max_num"]) + 1
 
 
-def create_user(tg_id: int, username: Optional[str], full_name: str, phone: str) -> int:
+def create_user(tg_id: int, username: str | None, full_name: str, phone: str) -> int:
     number = get_next_number()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
@@ -216,12 +243,6 @@ def create_user(tg_id: int, username: Optional[str], full_name: str, phone: str)
     return number
 
 
-def get_all_user_ids() -> list[int]:
-    with get_connection() as conn:
-        rows = conn.execute("SELECT tg_id FROM participants").fetchall()
-        return [int(row["tg_id"]) for row in rows]
-
-
 def get_period_start(period: str) -> datetime:
     now = datetime.now()
     if period == "today":
@@ -233,37 +254,13 @@ def get_period_start(period: str) -> datetime:
     raise ValueError("Unknown period")
 
 
-def get_users_for_period(period: str):
+def get_users_for_period(period: str) -> list[sqlite3.Row]:
     start_dt = get_period_start(period).strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
         return conn.execute(
             "SELECT * FROM participants WHERE created_at >= ? ORDER BY participant_number ASC",
             (start_dt,),
         ).fetchall()
-
-
-def export_to_excel(period: str) -> Optional[Path]:
-    rows = get_users_for_period(period)
-    if not rows:
-        return None
-
-    file_path = EXPORTS_DIR / f"participants_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    df = pd.DataFrame(
-        [
-            {
-                "ID": row["id"],
-                "Telegram ID": row["tg_id"],
-                "Username": row["username"] or "",
-                "Имя": row["full_name"],
-                "Телефон": row["phone"],
-                "Номер участника": row["participant_number"],
-                "Дата регистрации": row["created_at"],
-            }
-            for row in rows
-        ]
-    )
-    df.to_excel(file_path, index=False)
-    return file_path
 
 
 def reset_db() -> None:
@@ -273,15 +270,41 @@ def reset_db() -> None:
         conn.commit()
 
 
-# =========================================================
-# КЛАВИАТУРЫ
-# =========================================================
+def export_to_excel(period: str) -> Path | None:
+    rows = get_users_for_period(period)
+    if not rows:
+        return None
 
-def start_kb(is_admin: bool = False) -> ReplyKeyboardMarkup:
-    buttons = [[KeyboardButton(text=START_BUTTON)]]
-    if is_admin:
-        buttons.append([KeyboardButton(text=ADMIN_MENU_BUTTON)])
-    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = EXPORTS_DIR / f"participants_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    data = []
+    for row in rows:
+        data.append(
+            {
+                "ID": row["id"],
+                "Telegram ID": row["tg_id"],
+                "Username": row["username"] or "",
+                "Имя": row["full_name"],
+                "Телефон": row["phone"],
+                "Номер участника": row["participant_number"],
+                "Дата регистрации": row["created_at"],
+            }
+        )
+
+    df = pd.DataFrame(data)
+    df.to_excel(file_path, index=False)
+    return file_path
+
+
+# =========================================================
+# КНОПКИ
+# =========================================================
+def start_kb(is_admin_user: bool = False) -> ReplyKeyboardMarkup:
+    rows = [[KeyboardButton(text=START_BUTTON)]]
+    if is_admin_user:
+        rows.append([KeyboardButton(text=ADMIN_MENU_BUTTON)])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
 consent_kb = ReplyKeyboardMarkup(
@@ -297,12 +320,19 @@ phone_kb = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
+legend_answer_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=YES_BUTTON), KeyboardButton(text=NO_BUTTON)],
+    ],
+    resize_keyboard=True,
+)
+
 participant_kb = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text=PARTICIPANT_COMPANY)],
-        [KeyboardButton(text=PARTICIPANT_SOCHI)],
-        [KeyboardButton(text=PARTICIPANT_MANAGEMENT)],
-        [KeyboardButton(text=PARTICIPANT_CONTACT)],
+        [KeyboardButton(text=ABOUT_COMPANY_BUTTON)],
+        [KeyboardButton(text=SOCHI_BUTTON)],
+        [KeyboardButton(text=MANAGEMENT_BUTTON)],
+        [KeyboardButton(text=CONTACT_BUTTON)],
     ],
     resize_keyboard=True,
 )
@@ -319,64 +349,71 @@ admin_kb = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-legend_choice_kb = InlineKeyboardMarkup(
+broadcast_confirm_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=BROADCAST_SEND_BUTTON)],
+        [KeyboardButton(text=BROADCAST_CANCEL_BUTTON)],
+    ],
+    resize_keyboard=True,
+)
+
+contact_inline_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [
-            InlineKeyboardButton(text=YES_BUTTON, callback_data="legend_answer"),
-            InlineKeyboardButton(text=NO_BUTTON, callback_data="legend_answer"),
-        ]
+        [InlineKeyboardButton(text="Открыть Telegram", url=CONTACT_URL)]
     ]
 )
 
-contact_link_kb = InlineKeyboardMarkup(
-    inline_keyboard=[[InlineKeyboardButton(text="Перейти", url=CONTACT_URL)]]
-)
+# =========================================================
+# ВСПОМОГАТЕЛЬНОЕ
+# =========================================================
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
 
-broadcast_confirm_kb = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text=CONFIRM_BROADCAST_BUTTON, callback_data="broadcast_confirm")],
-        [InlineKeyboardButton(text=CANCEL_BROADCAST_BUTTON, callback_data="broadcast_cancel")],
-    ]
-)
+
+async def safe_send_photo(message: Message, path: Path, caption: str | None = None, reply_markup=None):
+    if not path.exists():
+        await message.answer(f"Файл не найден: {path.name}")
+        return
+    await message.answer_photo(FSInputFile(path), caption=caption, reply_markup=reply_markup)
+
+
+async def safe_send_audio(message: Message, path: Path, caption: str | None = None):
+    if not path.exists():
+        await message.answer(f"Файл не найден: {path.name}")
+        return
+    await message.answer_audio(FSInputFile(path), caption=caption)
+
+
+async def safe_send_document(message: Message, path: Path, caption: str | None = None):
+    if not path.exists():
+        await message.answer(f"Файл не найден: {path.name}")
+        return
+    await message.answer_document(FSInputFile(path), caption=caption)
+
+
+async def send_registered_menu(message: Message):
+    await message.answer(AFTER_REGISTRATION_TEXT, reply_markup=participant_kb)
+
+
+async def run_story_until_consent(message: Message, state: FSMContext, name: str):
+    await message.answer(NAME_TEXT_TEMPLATE.format(name=name))
+    await safe_send_photo(message, TIMING_IMAGE, caption=TIMING_CAPTION)
+    await safe_send_photo(message, MENU_IMAGE, caption=MENU_CAPTION)
+    await message.answer(SOCHI_TEXT)
+    await safe_send_photo(message, SOCHI_INTRO_IMAGE)
+    await safe_send_audio(message, LEGEND_AUDIO)
+    await message.answer("Как Вы думаете?", reply_markup=legend_answer_kb)
+    await state.set_state(Registration.waiting_for_legend_answer)
 
 
 # =========================================================
 # БОТ
 # =========================================================
+if BOT_TOKEN == "PASTE_BOT_TOKEN_HERE":
+    logging.warning("Укажите BOT_TOKEN в bot.py")
+
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
-
-
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
-
-
-async def safe_send_photo(message: Message, path: Path, caption: Optional[str] = None, reply_markup=None) -> None:
-    if not path.exists():
-        await message.answer(MISSING_FILE_TEXT_TEMPLATE.format(filename=path.name))
-        return
-    await message.answer_photo(FSInputFile(path), caption=caption, reply_markup=reply_markup)
-
-
-async def safe_send_document(message: Message, path: Path, caption: Optional[str] = None) -> None:
-    if not path.exists():
-        await message.answer(MISSING_FILE_TEXT_TEMPLATE.format(filename=path.name))
-        return
-    await message.answer_document(FSInputFile(path), caption=caption)
-
-
-async def safe_send_video(message: Message, path: Path, caption: Optional[str] = None) -> None:
-    if not path.exists():
-        await message.answer(MISSING_FILE_TEXT_TEMPLATE.format(filename=path.name))
-        return
-    await message.answer_video(FSInputFile(path), caption=caption)
-
-
-async def safe_send_audio(message: Message, path: Path, caption: Optional[str] = None) -> None:
-    if not path.exists():
-        await message.answer(MISSING_FILE_TEXT_TEMPLATE.format(filename=path.name))
-        return
-    await message.answer_audio(FSInputFile(path), caption=caption)
 
 
 @dp.message(CommandStart())
@@ -386,6 +423,7 @@ async def cmd_start(message: Message, state: FSMContext):
     if user:
         await message.answer(ALREADY_REGISTERED_TEXT, reply_markup=participant_kb)
         return
+
     await message.answer("Нажмите кнопку ниже, чтобы начать.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
 
@@ -395,49 +433,44 @@ async def start_registration(message: Message, state: FSMContext):
     if user:
         await message.answer(ALREADY_REGISTERED_TEXT, reply_markup=participant_kb)
         return
-    await message.answer(START_GREETING)
+
+    await message.answer(START_GREETING, reply_markup=ReplyKeyboardRemove())
     await message.answer(ASK_NAME)
     await state.set_state(Registration.waiting_for_name)
 
 
 @dp.message(Registration.waiting_for_name)
-async def process_name(message: Message, state: FSMContext):
+async def save_name(message: Message, state: FSMContext):
     name = (message.text or "").strip()
     if not name:
-        await message.answer(ASK_NAME)
+        await message.answer("Пожалуйста, введите имя текстом.")
         return
 
     await state.update_data(full_name=name)
-    await message.answer(NAME_TEXT_TEMPLATE.format(name=name))
-    await safe_send_photo(message, TIMING_IMAGE, caption=TIMING_CAPTION)
-    await message.answer(MENU_CAPTION)
-    await safe_send_photo(message, MENU_IMAGE)
-    await message.answer(SOCHI_TEXT)
-    await safe_send_photo(message, SOCHI_IMAGE, reply_markup=legend_choice_kb)
-    await safe_send_audio(message, LEGEND_AUDIO)
-    await state.set_state(Registration.waiting_for_legend_answer)
+    await run_story_until_consent(message, state, name)
 
 
-@dp.callback_query(F.data == "legend_answer")
-async def handle_legend_answer(callback: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state != Registration.waiting_for_legend_answer.state:
-        await callback.answer()
-        return
+@dp.message(Registration.waiting_for_legend_answer, F.text.in_({YES_BUTTON, NO_BUTTON}))
+async def process_legend_answer(message: Message, state: FSMContext):
+    await message.answer(VELVET_HISTORY_TEXT, reply_markup=ReplyKeyboardRemove())
+    await safe_send_photo(message, VELVET_SEASON_IMAGE)
+    await message.answer(VELVET_NEXT_TEXT)
+    await message.answer(CONSENT_TEXT, reply_markup=consent_kb)
+    await state.set_state(Registration.waiting_for_consent)
 
-    await callback.answer()
-    if callback.message:
-        await callback.message.answer(LEGEND_TEXT)
-        await safe_send_photo(callback.message, VELVET_SEASON_IMAGE)
-        await callback.message.answer(TODAY_HISTORY_TEXT)
-        await callback.message.answer(CONSENT_TEXT, reply_markup=consent_kb)
-        await state.set_state(Registration.waiting_for_consent)
+
+@dp.message(Registration.waiting_for_legend_answer)
+async def wrong_legend_answer(message: Message):
+    await message.answer("Пожалуйста, выберите ДА или НЕТ кнопкой ниже.", reply_markup=legend_answer_kb)
 
 
 @dp.message(Registration.waiting_for_consent, F.text == CONSENT_DECLINE_BUTTON)
 async def decline_consent(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(DECLINE_CONSENT_TEXT, reply_markup=start_kb(is_admin(message.from_user.id)))
+    await message.answer(
+        "Без согласия на обработку персональных данных регистрация невозможна.",
+        reply_markup=start_kb(is_admin(message.from_user.id)),
+    )
 
 
 @dp.message(Registration.waiting_for_consent, F.text == CONSENT_ACCEPT_BUTTON)
@@ -449,7 +482,7 @@ async def accept_consent(message: Message, state: FSMContext):
 
 @dp.message(Registration.waiting_for_consent)
 async def wrong_consent(message: Message):
-    await message.answer("Пожалуйста, выберите один из вариантов кнопкой ниже.", reply_markup=consent_kb)
+    await message.answer("Пожалуйста, используйте кнопки согласия ниже.", reply_markup=consent_kb)
 
 
 @dp.message(Registration.waiting_for_phone)
@@ -458,57 +491,75 @@ async def save_phone(message: Message, state: FSMContext):
         await message.answer("Пожалуйста, используйте кнопку «Отправить номер телефона».", reply_markup=phone_kb)
         return
 
-    contact = message.contact
-    if contact.user_id and contact.user_id != message.from_user.id:
-        await message.answer("Пожалуйста, отправьте свой номер телефона.", reply_markup=phone_kb)
+    if message.contact.user_id and message.contact.user_id != message.from_user.id:
+        await message.answer("Пожалуйста, отправьте свой номер телефона.")
         return
 
-    if get_user_by_tg_id(message.from_user.id):
+    existing_by_user = get_user_by_tg_id(message.from_user.id)
+    if existing_by_user:
         await state.clear()
         await message.answer(ALREADY_REGISTERED_TEXT, reply_markup=participant_kb)
         return
 
-    phone = normalize_phone(contact.phone_number)
-    if get_user_by_phone(phone):
+    phone = normalize_phone(message.contact.phone_number)
+    existing_by_phone = get_user_by_phone(phone)
+    if existing_by_phone:
         await state.clear()
-        await message.answer(PHONE_ALREADY_USED_TEXT, reply_markup=start_kb(is_admin(message.from_user.id)))
+        await message.answer(
+            "Этот номер телефона уже есть в базе. Один человек не может иметь два номера.",
+            reply_markup=start_kb(is_admin(message.from_user.id)),
+        )
         return
 
     data = await state.get_data()
+    full_name = data.get("full_name", "Без имени")
     create_user(
         tg_id=message.from_user.id,
         username=message.from_user.username,
-        full_name=data.get("full_name", "Без имени"),
+        full_name=full_name,
         phone=phone,
     )
+
     await state.clear()
-    await message.answer(PHOTOS_VIDEO_TEXT, reply_markup=participant_kb)
+    await send_registered_menu(message)
 
 
 # =========================================================
-# УЧАСТНИКИ
+# МЕНЮ УЧАСТНИКА
 # =========================================================
-@dp.message(F.text == PARTICIPANT_COMPANY)
-async def participant_company(message: Message):
-    await safe_send_photo(message, COMPANY_IMAGE, caption=COMPANY_CAPTION)
+@dp.message(F.text == ABOUT_COMPANY_BUTTON)
+async def participant_about_company(message: Message):
+    if not get_user_by_tg_id(message.from_user.id):
+        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
+        return
+    await safe_send_photo(message, COMPANY_IMAGE, caption=ABOUT_COMPANY_CAPTION)
 
 
-@dp.message(F.text == PARTICIPANT_SOCHI)
+@dp.message(F.text == SOCHI_BUTTON)
 async def participant_sochi(message: Message):
-    await safe_send_video(message, SOCHI_VIDEO)
+    if not get_user_by_tg_id(message.from_user.id):
+        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
+        return
+    await message.answer(SOCHI_LINK_TEXT)
     await safe_send_document(message, SOCHI_PRESENTATION)
 
 
-@dp.message(F.text == PARTICIPANT_MANAGEMENT)
+@dp.message(F.text == MANAGEMENT_BUTTON)
 async def participant_management(message: Message):
-    await safe_send_photo(message, MANAGEMENT_IMAGE_1)
-    await safe_send_photo(message, MANAGEMENT_IMAGE_2)
+    if not get_user_by_tg_id(message.from_user.id):
+        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
+        return
+    await safe_send_photo(message, MANAGEMENT_1)
+    await safe_send_photo(message, MANAGEMENT_2)
 
 
-@dp.message(F.text == PARTICIPANT_CONTACT)
+@dp.message(F.text == CONTACT_BUTTON)
 async def participant_contact(message: Message):
+    if not get_user_by_tg_id(message.from_user.id):
+        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
+        return
     await safe_send_photo(message, CONTACT_IMAGE)
-    await message.answer(CONTACT_TEXT, reply_markup=contact_link_kb)
+    await message.answer(CONTACT_TEXT, reply_markup=contact_inline_kb)
 
 
 # =========================================================
@@ -519,19 +570,21 @@ async def participant_contact(message: Message):
 async def admin_menu(message: Message, state: FSMContext):
     await state.clear()
     if not is_admin(message.from_user.id):
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer(ADMIN_ONLY_TEXT)
         return
     await message.answer("Админ меню. Выберите действие.", reply_markup=admin_kb)
 
 
 async def process_export(message: Message, period: str):
     if not is_admin(message.from_user.id):
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer(ADMIN_ONLY_TEXT)
         return
+
     file_path = export_to_excel(period)
     if file_path is None:
-        await message.answer("За выбранный период зарегистрированных участников нет.")
+        await message.answer(EXPORT_EMPTY_TEXT)
         return
+
     await message.answer_document(FSInputFile(file_path), caption=f"Выгрузка: {period}")
 
 
@@ -553,107 +606,111 @@ async def export_month(message: Message):
 @dp.message(F.text == RESET_DB_BUTTON)
 async def ask_reset_password(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer(ADMIN_ONLY_TEXT)
         return
     await state.set_state(AdminReset.waiting_for_password)
-    await message.answer("Введите пароль для сброса базы.")
+    await message.answer(RESET_PASSWORD_TEXT, reply_markup=ReplyKeyboardRemove())
 
 
 @dp.message(AdminReset.waiting_for_password)
-async def confirm_reset(message: Message, state: FSMContext):
+async def process_reset_password(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         await state.clear()
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer(ADMIN_ONLY_TEXT)
         return
-    if message.text == RESET_PASSWORD:
+
+    if (message.text or "").strip() == RESET_PASSWORD:
         reset_db()
-        await message.answer("База данных очищена.", reply_markup=admin_kb)
+        await message.answer(RESET_SUCCESS_TEXT, reply_markup=admin_kb)
     else:
-        await message.answer("Неверный пароль. Ресет отменён.", reply_markup=admin_kb)
+        await message.answer(RESET_FAILED_TEXT, reply_markup=admin_kb)
     await state.clear()
 
 
 @dp.message(F.text == BROADCAST_BUTTON)
 async def broadcast_start(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer(ADMIN_ONLY_TEXT)
         return
-    await state.set_state(AdminBroadcast.waiting_for_message)
-    await message.answer(
-        "Отправьте сообщение для рассылки. Можно отправить текст или фото с подписью."
-    )
+    await state.set_state(AdminBroadcast.waiting_for_content)
+    await message.answer(BROADCAST_PROMPT_TEXT, reply_markup=ReplyKeyboardRemove())
 
 
-@dp.message(AdminBroadcast.waiting_for_message)
-async def broadcast_prepare(message: Message, state: FSMContext):
+@dp.message(AdminBroadcast.waiting_for_content, F.content_type.in_({ContentType.TEXT, ContentType.PHOTO}))
+async def broadcast_capture(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         await state.clear()
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer(ADMIN_ONLY_TEXT)
         return
 
     if message.photo:
         file_id = message.photo[-1].file_id
         caption = message.caption or ""
         await state.update_data(broadcast_type="photo", file_id=file_id, caption=caption)
-        await message.answer_photo(file_id, caption=caption, reply_markup=broadcast_confirm_kb)
-        await state.set_state(AdminBroadcast.waiting_for_confirmation)
-        return
+        await message.answer_photo(file_id, caption=caption)
+    else:
+        text = message.text or ""
+        await state.update_data(broadcast_type="text", text=text)
+        await message.answer(text)
 
-    text = (message.text or "").strip()
-    if not text:
-        await message.answer("Сообщение пустое. Отправьте текст или фото с подписью.")
-        return
-
-    await state.update_data(broadcast_type="text", text=text)
-    await message.answer(text, reply_markup=broadcast_confirm_kb)
-    await state.set_state(AdminBroadcast.waiting_for_confirmation)
+    await state.set_state(AdminBroadcast.waiting_for_confirm)
+    await message.answer(BROADCAST_PREVIEW_TEXT, reply_markup=broadcast_confirm_kb)
 
 
-@dp.callback_query(F.data == "broadcast_cancel")
-async def broadcast_cancel(callback: CallbackQuery, state: FSMContext):
+@dp.message(AdminBroadcast.waiting_for_content)
+async def broadcast_capture_wrong(message: Message):
+    await message.answer("Отправьте текст или фото с подписью.")
+
+
+@dp.message(AdminBroadcast.waiting_for_confirm, F.text == BROADCAST_CANCEL_BUTTON)
+async def broadcast_cancel(message: Message, state: FSMContext):
     await state.clear()
-    await callback.answer("Рассылка отменена")
-    if callback.message:
-        await callback.message.answer("Рассылка отменена.", reply_markup=admin_kb)
+    await message.answer(BROADCAST_CANCELLED_TEXT, reply_markup=admin_kb)
 
 
-@dp.callback_query(F.data == "broadcast_confirm")
-async def broadcast_confirm(callback: CallbackQuery, state: FSMContext):
-    await callback.answer("Рассылка запущена")
-    if not is_admin(callback.from_user.id):
+@dp.message(AdminBroadcast.waiting_for_confirm, F.text == BROADCAST_SEND_BUTTON)
+async def broadcast_send(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
         await state.clear()
+        await message.answer(ADMIN_ONLY_TEXT)
         return
 
     data = await state.get_data()
-    user_ids = get_all_user_ids()
-    success_count = 0
-    failed_count = 0
+    users = get_all_user_ids()
 
-    for user_id in user_ids:
+    ok = 0
+    bad = 0
+    for user_id in users:
         try:
             if data.get("broadcast_type") == "photo":
                 await bot.send_photo(user_id, data["file_id"], caption=data.get("caption", ""))
             else:
                 await bot.send_message(user_id, data.get("text", ""))
-            success_count += 1
+            ok += 1
         except Exception:
-            failed_count += 1
+            bad += 1
 
     await state.clear()
-    if callback.message:
-        await callback.message.answer(
-            f"Рассылка завершена.\nУспешно отправлено: {success_count}\nНе доставлено: {failed_count}",
-            reply_markup=admin_kb,
-        )
+    await message.answer(BROADCAST_DONE_TEXT.format(ok=ok, bad=bad), reply_markup=admin_kb)
+
+
+@dp.message(AdminBroadcast.waiting_for_confirm)
+async def broadcast_wrong_confirm(message: Message):
+    await message.answer("Используйте кнопки ниже.", reply_markup=broadcast_confirm_kb)
 
 
 @dp.message(F.text == BACK_BUTTON)
 async def go_back(message: Message, state: FSMContext):
     await state.clear()
     if is_admin(message.from_user.id):
-        await message.answer("Возврат в меню администратора.", reply_markup=admin_kb)
+        await message.answer("Возврат в админ меню.", reply_markup=admin_kb)
+        return
+
+    user = get_user_by_tg_id(message.from_user.id)
+    if user:
+        await message.answer("Меню участника.", reply_markup=participant_kb)
     else:
-        await message.answer("Возврат в меню.", reply_markup=participant_kb)
+        await message.answer("Главное меню.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
 
 @dp.message()
@@ -668,6 +725,8 @@ async def fallback(message: Message):
 async def main():
     logging.basicConfig(level=logging.INFO)
     init_db()
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     await dp.start_polling(bot)
 
 
