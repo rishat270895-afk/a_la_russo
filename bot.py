@@ -31,7 +31,7 @@ from aiogram.types import (
 BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
 ADMIN_IDS = {922603146}
 RESET_PASSWORD = "12345678"
-CONTACT_URL = "https://t.me/nikaestate_sochi»
+CONTACT_URL = "https://t.me/nikaestate_sochi"
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "database.db"
