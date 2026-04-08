@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,18 +25,16 @@ from aiogram.types import (
 # =========================================================
 # НАСТРОЙКИ
 # =========================================================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
 
-# Ссылка для кнопки "СВЯЗАТЬСЯ"
-CONTACT_URL = "https://t.me/nikaestate_sochi"
+CONTACT_URL = "https://t.me/bulygina_diana"
 
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
 ASSETS_DIR = Path("assets")
 
-# Файлы в папке assets
 TIMING_IMAGE = ASSETS_DIR / "timing.png"
 MENU_IMAGE = ASSETS_DIR / "menu.png"
 SOCHI_INTRO_IMAGE = ASSETS_DIR / "sochi_intro.png"
@@ -109,19 +106,14 @@ VELVET_NEXT_TEXT = (
     "Сегодня окунемся в истории бархатного сезона, и Вы сможете стать свидетелями событий того времени…"
 )
 
-CONSENT_TEXT = (
-    "Пожалуйста, подтвердите согласие на обработку персональных данных."
-)
-
+CONSENT_TEXT = "Пожалуйста, подтвердите согласие на обработку персональных данных."
 ASK_PHONE_TEXT = "Пожалуйста, нажмите кнопку ниже и отправьте номер телефона."
 
 AFTER_REGISTRATION_TEXT = (
     "Фотографии и видео с сегодняшнего события мы вышлем Вам здесь, поэтому не переключайтесь"
 )
 
-ALREADY_REGISTERED_TEXT = (
-    "Вы уже зарегистрированы. Ниже доступно меню участника."
-)
+ALREADY_REGISTERED_TEXT = "Вы уже зарегистрированы. Ниже доступно меню участника."
 
 ABOUT_COMPANY_CAPTION = (
     "Международное агентство недвижимости NIKA ESTATE\n\n"
@@ -136,7 +128,6 @@ ABOUT_COMPANY_CAPTION = (
 )
 
 SOCHI_LINK_TEXT = "Посмотреть видео:\nhttps://disk.yandex.ru/i/F-zO0e8e--pcAA"
-
 CONTACT_TEXT = "Для связи перейдите по ссылке ниже."
 
 ADMIN_ONLY_TEXT = "Эта команда доступна только администратору."
@@ -402,16 +393,13 @@ async def run_story_until_consent(message: Message, state: FSMContext, name: str
     await message.answer(SOCHI_TEXT)
     await safe_send_photo(message, SOCHI_INTRO_IMAGE)
     await safe_send_audio(message, LEGEND_AUDIO)
-    await message.answer(" ", reply_markup=legend_answer_kb)
+    await message.answer("✨", reply_markup=legend_answer_kb)
     await state.set_state(Registration.waiting_for_legend_answer)
 
 
 # =========================================================
 # БОТ
 # =========================================================
-if BOT_TOKEN == "PASTE_BOT_TOKEN_HERE":
-    logging.warning("Укажите BOT_TOKEN в bot.py")
-
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 
