@@ -28,10 +28,10 @@ from aiogram.types import (
 # =========================================================
 # НАСТРОЙКИ — ЗАМЕНИТЕ ПОД СЕБЯ
 # =========================================================
-BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
-ADMIN_IDS = {123456789}
-RESET_PASSWORD = "1234"
-CONTACT_URL = "https://t.me/bulygina_diana"  # ссылка на TG-канал/аккаунт для кнопки «СВЯЗАТЬСЯ»
+BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
+ADMIN_IDS = {922603146}
+RESET_PASSWORD = "12345678"
+CONTACT_URL = "https://t.me/nikaestate_sochi»
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "database.db"
@@ -46,7 +46,7 @@ LEGEND_AUDIO = ASSETS_DIR / "legend_audio.mp3"
 VELVET_SEASON_IMAGE = ASSETS_DIR / "velvet_season.png"
 COMPANY_IMAGE = ASSETS_DIR / "company.png"
 SOCHI_VIDEO = ASSETS_DIR / "sochi_video.mp4"
-SOCHI_PRESENTATION = ASSETS_DIR / "sochi_presentation.pptx"
+SOCHI_PRESENTATION = ASSETS_DIR / "sochi_presentation.pdf"
 MANAGEMENT_IMAGE_1 = ASSETS_DIR / "management_1.png"
 MANAGEMENT_IMAGE_2 = ASSETS_DIR / "management_2.png"
 CONTACT_IMAGE = ASSETS_DIR / "contact.png"
