@@ -25,11 +25,11 @@ from aiogram.types import (
 # =========================================================
 # НАСТРОЙКИ
 # =========================================================
-BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
-ADMIN_IDS = {123456789}
-RESET_PASSWORD = "1234"
+BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
+ADMIN_IDS = {922603146}
+RESET_PASSWORD = "12345678"
 
-CONTACT_URL = "https://t.me/bulygina_diana"
+CONTACT_URL = "https://t.me/nikaestate_sochi"
 
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
