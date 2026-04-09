@@ -20,9 +20,9 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
-ADMIN_IDS = {123456789}
-RESET_PASSWORD = "1234"
+BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
+ADMIN_IDS = {922603146}
+RESET_PASSWORD = "12345678"
 
 # ВРЕМЕННО: сюда позже вставишь реальный file_id, когда бот его покажет
 SOCHI_VIDEO_FILE_ID = "PASTE_VIDEO_FILE_ID_HERE"
