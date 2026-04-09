@@ -14,22 +14,15 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     FSInputFile,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
 
-# =========================================================
-# НАСТРОЙКИ
-# =========================================================
-BOT_TOKEN = "8428046405:AAFISFm6Mm3ZStV93DsyxhZzc9HwMN6n63c"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
-
-CONTACT_URL = "https://t.me/nikaestate_sochi"
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
 
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
@@ -41,27 +34,26 @@ SOCHI_INTRO_IMAGE = ASSETS_DIR / "sochi_intro.png"
 LEGEND_AUDIO = ASSETS_DIR / "legend_audio.mp3"
 VELVET_SEASON_IMAGE = ASSETS_DIR / "velvet_season.png"
 COMPANY_IMAGE = ASSETS_DIR / "company.png"
+SOCHI_VIDEO = ASSETS_DIR / "sochi_video.mov"
 SOCHI_PRESENTATION = ASSETS_DIR / "sochi_presentation.pdf"
 MANAGEMENT_1 = ASSETS_DIR / "management_1.png"
 MANAGEMENT_2 = ASSETS_DIR / "management_2.png"
-CONTACT_IMAGE = ASSETS_DIR / "contact.png"
+MEETING_IMAGE = ASSETS_DIR / "contact.png"
 
-# =========================================================
-# ТЕКСТЫ И КНОПКИ
-# =========================================================
 START_BUTTON = "Старт"
 CONSENT_ACCEPT_BUTTON = "Согласен(а)"
 CONSENT_DECLINE_BUTTON = "Не согласен(а)"
 SEND_PHONE_BUTTON = "Отправить номер телефона"
 BACK_BUTTON = "Назад"
 
-YES_BUTTON = "ДА"
-NO_BUTTON = "НЕТ"
+YES_BUTTON = "✨ Да"
+NO_BUTTON = "🌊 Нет"
 
 ABOUT_COMPANY_BUTTON = "О КОМПАНИИ"
 SOCHI_BUTTON = "СОЧИ"
 MANAGEMENT_BUTTON = "РУКОВОДСТВО"
-CONTACT_BUTTON = "СВЯЗАТЬСЯ"
+MEETING_BUTTON = "ВСТРЕЧА"
+BOOK_MEETING_BUTTON = "Записаться на встречу"
 
 ADMIN_MENU_BUTTON = "Админ меню"
 EXPORT_TODAY_BUTTON = "Выгрузка: сегодня"
@@ -124,11 +116,22 @@ ABOUT_COMPANY_CAPTION = (
     "Семейная резиденция, коммерческий объект, точка выхода на новый рынок или актив с понятной доходностью – "
     "любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, "
     "в котором важны детали, конфиденциальность и результат.\n\n"
-    "NIKA ESTATE – ваш доступ к миру премиальной недвижимости в России и за рубежом."
+    "NIKA ESTATE – ваш доступ к миру премиальной недвижимости в России и за рубежом.\n\n"
+    "Telegram-канал: https://t.me/nikaestate_sochi"
 )
 
-SOCHI_LINK_TEXT = "Посмотреть видео:\nhttps://disk.yandex.ru/i/F-zO0e8e--pcAA"
-CONTACT_TEXT = "Для связи перейдите по ссылке ниже."
+MANAGEMENT_1_CAPTION = "Виктор Садыгов, основатель и генеральный директор NIKA ESTATE."
+MANAGEMENT_2_CAPTION = (
+    "Юлия Нафикова, управляющий партнер, топ брокер и амбассадор NIKA ESTATE, "
+    "телефон для связи +79182888696."
+)
+
+MEETING_TEXT = "Чтобы записаться на встречу, нажмите кнопку ниже."
+MEETING_ACCEPTED_TEXT = (
+    "Спасибо за отклик 💛\n\n"
+    "Информация принята, и мы уже передали Ваш запрос. "
+    "С Вами обязательно свяжутся в ближайшее время, чтобы подобрать удобный формат встречи."
+)
 
 ADMIN_ONLY_TEXT = "Эта команда доступна только администратору."
 UNKNOWN_TEXT = "Используйте кнопки меню."
@@ -145,9 +148,6 @@ BROADCAST_PREVIEW_TEXT = "Предпросмотр рассылки. Выбер�
 BROADCAST_DONE_TEXT = "Рассылка завершена.\nУспешно: {ok}\nНе доставлено: {bad}"
 BROADCAST_CANCELLED_TEXT = "Рассылка отменена."
 
-# =========================================================
-# СОСТОЯНИЯ
-# =========================================================
 class Registration(StatesGroup):
     waiting_for_name = State()
     waiting_for_legend_answer = State()
@@ -164,9 +164,6 @@ class AdminBroadcast(StatesGroup):
     waiting_for_confirm = State()
 
 
-# =========================================================
-# БАЗА
-# =========================================================
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -175,19 +172,30 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     with get_connection() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS participants (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tg_id INTEGER NOT NULL UNIQUE,
-                username TEXT,
-                full_name TEXT NOT NULL,
-                phone TEXT NOT NULL UNIQUE,
-                participant_number INTEGER NOT NULL UNIQUE,
-                created_at TEXT NOT NULL
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(participants)").fetchall()]
+        if not columns:
+            conn.execute(
+                '''
+                CREATE TABLE participants (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tg_id INTEGER NOT NULL UNIQUE,
+                    username TEXT,
+                    full_name TEXT NOT NULL,
+                    phone TEXT NOT NULL UNIQUE,
+                    participant_number INTEGER NOT NULL UNIQUE,
+                    wants_meeting INTEGER NOT NULL DEFAULT 0,
+                    meeting_requested_at TEXT,
+                    created_at TEXT NOT NULL
+                )
+                '''
             )
-            """
-        )
+            conn.commit()
+            return
+
+        if "wants_meeting" not in columns:
+            conn.execute("ALTER TABLE participants ADD COLUMN wants_meeting INTEGER NOT NULL DEFAULT 0")
+        if "meeting_requested_at" not in columns:
+            conn.execute("ALTER TABLE participants ADD COLUMN meeting_requested_at TEXT")
         conn.commit()
 
 
@@ -224,14 +232,32 @@ def create_user(tg_id: int, username: str | None, full_name: str, phone: str) ->
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
         conn.execute(
-            """
-            INSERT INTO participants (tg_id, username, full_name, phone, participant_number, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
+            '''
+            INSERT INTO participants (
+                tg_id, username, full_name, phone, participant_number,
+                wants_meeting, meeting_requested_at, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, 0, NULL, ?)
+            ''',
             (tg_id, username, full_name, phone, number, created_at),
         )
         conn.commit()
     return number
+
+
+def set_meeting_request(tg_id: int) -> None:
+    requested_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        conn.execute(
+            '''
+            UPDATE participants
+            SET wants_meeting = 1,
+                meeting_requested_at = ?
+            WHERE tg_id = ?
+            ''',
+            (requested_at, tg_id),
+        )
+        conn.commit()
 
 
 def get_period_start(period: str) -> datetime:
@@ -279,6 +305,8 @@ def export_to_excel(period: str) -> Path | None:
                 "Имя": row["full_name"],
                 "Телефон": row["phone"],
                 "Номер участника": row["participant_number"],
+                "Хочет встречу": "Да" if int(row["wants_meeting"] or 0) == 1 else "Нет",
+                "Дата заявки на встречу": row["meeting_requested_at"] or "",
                 "Дата регистрации": row["created_at"],
             }
         )
@@ -288,9 +316,6 @@ def export_to_excel(period: str) -> Path | None:
     return file_path
 
 
-# =========================================================
-# КНОПКИ
-# =========================================================
 def start_kb(is_admin_user: bool = False) -> ReplyKeyboardMarkup:
     rows = [[KeyboardButton(text=START_BUTTON)]]
     if is_admin_user:
@@ -323,7 +348,15 @@ participant_kb = ReplyKeyboardMarkup(
         [KeyboardButton(text=ABOUT_COMPANY_BUTTON)],
         [KeyboardButton(text=SOCHI_BUTTON)],
         [KeyboardButton(text=MANAGEMENT_BUTTON)],
-        [KeyboardButton(text=CONTACT_BUTTON)],
+        [KeyboardButton(text=MEETING_BUTTON)],
+    ],
+    resize_keyboard=True,
+)
+
+meeting_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=BOOK_MEETING_BUTTON)],
+        [KeyboardButton(text=BACK_BUTTON)],
     ],
     resize_keyboard=True,
 )
@@ -348,15 +381,7 @@ broadcast_confirm_kb = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-contact_inline_kb = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="Открыть Telegram", url=CONTACT_URL)]
-    ]
-)
 
-# =========================================================
-# ВСПОМОГАТЕЛЬНОЕ
-# =========================================================
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
@@ -382,6 +407,13 @@ async def safe_send_document(message: Message, path: Path, caption: str | None =
     await message.answer_document(FSInputFile(path), caption=caption)
 
 
+async def safe_send_video(message: Message, path: Path, caption: str | None = None):
+    if not path.exists():
+        await message.answer(f"Файл не найден: {path.name}")
+        return
+    await message.answer_video(FSInputFile(path), caption=caption, request_timeout=120)
+
+
 async def send_registered_menu(message: Message):
     await message.answer(AFTER_REGISTRATION_TEXT, reply_markup=participant_kb)
 
@@ -397,9 +429,6 @@ async def run_story_until_consent(message: Message, state: FSMContext, name: str
     await state.set_state(Registration.waiting_for_legend_answer)
 
 
-# =========================================================
-# БОТ
-# =========================================================
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -411,7 +440,6 @@ async def cmd_start(message: Message, state: FSMContext):
     if user:
         await message.answer(ALREADY_REGISTERED_TEXT, reply_markup=participant_kb)
         return
-
     await message.answer("Нажмите кнопку ниже, чтобы начать.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
 
@@ -421,7 +449,6 @@ async def start_registration(message: Message, state: FSMContext):
     if user:
         await message.answer(ALREADY_REGISTERED_TEXT, reply_markup=participant_kb)
         return
-
     await message.answer(START_GREETING, reply_markup=ReplyKeyboardRemove())
     await message.answer(ASK_NAME)
     await state.set_state(Registration.waiting_for_name)
@@ -433,7 +460,6 @@ async def save_name(message: Message, state: FSMContext):
     if not name:
         await message.answer("Пожалуйста, введите имя текстом.")
         return
-
     await state.update_data(full_name=name)
     await run_story_until_consent(message, state, name)
 
@@ -449,7 +475,7 @@ async def process_legend_answer(message: Message, state: FSMContext):
 
 @dp.message(Registration.waiting_for_legend_answer)
 async def wrong_legend_answer(message: Message):
-    await message.answer("Пожалуйста, выберите ДА или НЕТ кнопкой ниже.", reply_markup=legend_answer_kb)
+    await message.answer("Пожалуйста, выберите одну из кнопок ниже.", reply_markup=legend_answer_kb)
 
 
 @dp.message(Registration.waiting_for_consent, F.text == CONSENT_DECLINE_BUTTON)
@@ -478,7 +504,6 @@ async def save_phone(message: Message, state: FSMContext):
     if not message.contact:
         await message.answer("Пожалуйста, используйте кнопку «Отправить номер телефона».", reply_markup=phone_kb)
         return
-
     if message.contact.user_id and message.contact.user_id != message.from_user.id:
         await message.answer("Пожалуйста, отправьте свой номер телефона.")
         return
@@ -507,14 +532,10 @@ async def save_phone(message: Message, state: FSMContext):
         full_name=full_name,
         phone=phone,
     )
-
     await state.clear()
     await send_registered_menu(message)
 
 
-# =========================================================
-# МЕНЮ УЧАСТНИКА
-# =========================================================
 @dp.message(F.text == ABOUT_COMPANY_BUTTON)
 async def participant_about_company(message: Message):
     if not get_user_by_tg_id(message.from_user.id):
@@ -528,7 +549,7 @@ async def participant_sochi(message: Message):
     if not get_user_by_tg_id(message.from_user.id):
         await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
         return
-    await message.answer(SOCHI_LINK_TEXT)
+    await safe_send_video(message, SOCHI_VIDEO)
     await safe_send_document(message, SOCHI_PRESENTATION)
 
 
@@ -537,22 +558,29 @@ async def participant_management(message: Message):
     if not get_user_by_tg_id(message.from_user.id):
         await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
         return
-    await safe_send_photo(message, MANAGEMENT_1)
-    await safe_send_photo(message, MANAGEMENT_2)
+    await safe_send_photo(message, MANAGEMENT_1, caption=MANAGEMENT_1_CAPTION)
+    await safe_send_photo(message, MANAGEMENT_2, caption=MANAGEMENT_2_CAPTION)
 
 
-@dp.message(F.text == CONTACT_BUTTON)
-async def participant_contact(message: Message):
+@dp.message(F.text == MEETING_BUTTON)
+async def participant_meeting(message: Message):
     if not get_user_by_tg_id(message.from_user.id):
         await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
         return
-    await safe_send_photo(message, CONTACT_IMAGE)
-    await message.answer(CONTACT_TEXT, reply_markup=contact_inline_kb)
+    await safe_send_photo(message, MEETING_IMAGE)
+    await message.answer(MEETING_TEXT, reply_markup=meeting_kb)
 
 
-# =========================================================
-# АДМИНКА
-# =========================================================
+@dp.message(F.text == BOOK_MEETING_BUTTON)
+async def participant_book_meeting(message: Message):
+    user = get_user_by_tg_id(message.from_user.id)
+    if not user:
+        await message.answer("Сначала нужно пройти регистрацию.", reply_markup=start_kb(is_admin(message.from_user.id)))
+        return
+    set_meeting_request(message.from_user.id)
+    await message.answer(MEETING_ACCEPTED_TEXT, reply_markup=participant_kb)
+
+
 @dp.message(F.text == ADMIN_MENU_BUTTON)
 @dp.message(Command("admin"))
 async def admin_menu(message: Message, state: FSMContext):
@@ -567,12 +595,10 @@ async def process_export(message: Message, period: str):
     if not is_admin(message.from_user.id):
         await message.answer(ADMIN_ONLY_TEXT)
         return
-
     file_path = export_to_excel(period)
     if file_path is None:
         await message.answer(EXPORT_EMPTY_TEXT)
         return
-
     await message.answer_document(FSInputFile(file_path), caption=f"Выгрузка: {period}")
 
 
@@ -606,7 +632,6 @@ async def process_reset_password(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(ADMIN_ONLY_TEXT)
         return
-
     if (message.text or "").strip() == RESET_PASSWORD:
         reset_db()
         await message.answer(RESET_SUCCESS_TEXT, reply_markup=admin_kb)
@@ -630,7 +655,6 @@ async def broadcast_capture(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(ADMIN_ONLY_TEXT)
         return
-
     if message.photo:
         file_id = message.photo[-1].file_id
         caption = message.caption or ""
@@ -640,7 +664,6 @@ async def broadcast_capture(message: Message, state: FSMContext):
         text = message.text or ""
         await state.update_data(broadcast_type="text", text=text)
         await message.answer(text)
-
     await state.set_state(AdminBroadcast.waiting_for_confirm)
     await message.answer(BROADCAST_PREVIEW_TEXT, reply_markup=broadcast_confirm_kb)
 
@@ -662,10 +685,8 @@ async def broadcast_send(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(ADMIN_ONLY_TEXT)
         return
-
     data = await state.get_data()
     users = get_all_user_ids()
-
     ok = 0
     bad = 0
     for user_id in users:
@@ -677,7 +698,6 @@ async def broadcast_send(message: Message, state: FSMContext):
             ok += 1
         except Exception:
             bad += 1
-
     await state.clear()
     await message.answer(BROADCAST_DONE_TEXT.format(ok=ok, bad=bad), reply_markup=admin_kb)
 
@@ -693,7 +713,6 @@ async def go_back(message: Message, state: FSMContext):
     if is_admin(message.from_user.id):
         await message.answer("Возврат в админ меню.", reply_markup=admin_kb)
         return
-
     user = get_user_by_tg_id(message.from_user.id)
     if user:
         await message.answer("Меню участника.", reply_markup=participant_kb)
