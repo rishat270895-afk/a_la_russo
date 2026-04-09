@@ -12,18 +12,12 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (
-    FSInputFile,
-    KeyboardButton,
-    Message,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-)
+from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-BOT_TOKEN = "8519818887:AAGuxEb5eIWMoAqFAFJ8yxObvgixrOq0AIo"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
-SOCHI_VIDEO_FILE_ID = "BAACAgIAAxkBAAMDadeAr6Rhi1VftEZDNhlXQ7dM2twAAueXAAJeicBK8zraIqLfVNw7BA"
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
+SOCHI_VIDEO_FILE_ID = "PASTE_VIDEO_FILE_ID_HERE"
 
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
@@ -45,6 +39,9 @@ CONSENT_ACCEPT_BUTTON = "Согласен(а)"
 CONSENT_DECLINE_BUTTON = "Не согласен(а)"
 SEND_PHONE_BUTTON = "Отправить номер телефона"
 BACK_BUTTON = "Назад"
+
+MENU_STEP_BUTTON = "🍽 Меню"
+SOCHI_STEP_BUTTON = "Сочи ☀️"
 
 YES_BUTTON = "✨ Да"
 NO_BUTTON = "🌊 Нет"
@@ -100,14 +97,20 @@ ABOUT_COMPANY_CAPTION = (
     "Входим в международную ассоциацию AREA.\n\n"
     "Только лучшие предложения на рынке\n"
     "недвижимости в России и за рубежом.\n\n"
-    "Семейная резиденция, коммерческий объект, точка выхода на новый рынок или актив с понятной доходностью – любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, в котором важны детали, конфиденциальность и результат.\n\n"
+    "Семейная резиденция, коммерческий объект, точка выхода на новый рынок или актив с понятной доходностью – "
+    "любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, "
+    "в котором важны детали, конфиденциальность и результат.\n\n"
     "NIKA ESTATE – ваш доступ к миру премиальной недвижимости в России и за рубежом.\n\n"
     "Telegram-канал: https://t.me/nikaestate_sochi"
 )
 MANAGEMENT_1_CAPTION = "Виктор Садыгов, основатель и генеральный директор NIKA ESTATE."
 MANAGEMENT_2_CAPTION = "Юлия Нафикова, управляющий партнер, топ брокер и амбассадор NIKA ESTATE, телефон для связи +79182888696."
 MEETING_TEXT = "Чтобы записаться на встречу, нажмите кнопку ниже."
-MEETING_ACCEPTED_TEXT = "Спасибо за отклик 💛\n\nИнформация принята, и мы уже передали Ваш запрос. С Вами обязательно свяжутся в ближайшее время, чтобы подобрать удобный формат встречи."
+MEETING_ACCEPTED_TEXT = (
+    "Спасибо за отклик 💛\n\n"
+    "Информация принята, и мы уже передали Ваш запрос. "
+    "С Вами обязательно свяжутся в ближайшее время, чтобы подобрать удобный формат встречи."
+)
 ADMIN_ONLY_TEXT = "Эта команда доступна только администратору."
 UNKNOWN_TEXT = "Используйте кнопки меню."
 EXPORT_EMPTY_TEXT = "За выбранный период зарегистрированных участников нет."
@@ -121,6 +124,8 @@ BROADCAST_CANCELLED_TEXT = "Рассылка отменена."
 
 class Registration(StatesGroup):
     waiting_for_name = State()
+    waiting_for_menu_step = State()
+    waiting_for_sochi_step = State()
     waiting_for_legend_answer = State()
     waiting_for_consent = State()
     waiting_for_phone = State()
@@ -141,7 +146,7 @@ def init_db() -> None:
     with get_connection() as conn:
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(participants)").fetchall()]
         if not columns:
-            conn.execute('''
+            conn.execute("""
                 CREATE TABLE participants (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     tg_id INTEGER NOT NULL UNIQUE,
@@ -153,7 +158,7 @@ def init_db() -> None:
                     meeting_requested_at TEXT,
                     created_at TEXT NOT NULL
                 )
-            ''')
+            """)
             conn.commit()
             return
         if "wants_meeting" not in columns:
@@ -181,31 +186,32 @@ def get_all_user_ids() -> list[int]:
 def get_next_number() -> int:
     with get_connection() as conn:
         row = conn.execute("SELECT MAX(participant_number) AS max_num FROM participants").fetchone()
-        if row is None or row["max_num"] is None:
-            return 1
-        return int(row["max_num"]) + 1
+        return 1 if row is None or row["max_num"] is None else int(row["max_num"]) + 1
 
 def create_user(tg_id: int, username: str | None, full_name: str, phone: str) -> int:
     number = get_next_number()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        conn.execute('''
+        conn.execute(
+            """
             INSERT INTO participants (
                 tg_id, username, full_name, phone, participant_number,
                 wants_meeting, meeting_requested_at, created_at
-            ) VALUES (?, ?, ?, ?, ?, 0, NULL, ?)
-        ''', (tg_id, username, full_name, phone, number, created_at))
+            )
+            VALUES (?, ?, ?, ?, ?, 0, NULL, ?)
+            """,
+            (tg_id, username, full_name, phone, number, created_at),
+        )
         conn.commit()
     return number
 
 def set_meeting_request(tg_id: int) -> None:
     requested_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        conn.execute('''
-            UPDATE participants
-            SET wants_meeting = 1, meeting_requested_at = ?
-            WHERE tg_id = ?
-        ''', (requested_at, tg_id))
+        conn.execute(
+            "UPDATE participants SET wants_meeting = 1, meeting_requested_at = ? WHERE tg_id = ?",
+            (requested_at, tg_id),
+        )
         conn.commit()
 
 def get_period_start(period: str) -> datetime:
@@ -221,10 +227,7 @@ def get_period_start(period: str) -> datetime:
 def get_users_for_period(period: str) -> list[sqlite3.Row]:
     start_dt = get_period_start(period).strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        return conn.execute(
-            "SELECT * FROM participants WHERE created_at >= ? ORDER BY participant_number ASC",
-            (start_dt,),
-        ).fetchall()
+        return conn.execute("SELECT * FROM participants WHERE created_at >= ? ORDER BY participant_number ASC", (start_dt,)).fetchall()
 
 def reset_db() -> None:
     with get_connection() as conn:
@@ -262,6 +265,8 @@ def start_kb(is_admin_user: bool = False) -> ReplyKeyboardMarkup:
 
 consent_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=CONSENT_ACCEPT_BUTTON)], [KeyboardButton(text=CONSENT_DECLINE_BUTTON)]], resize_keyboard=True)
 phone_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=SEND_PHONE_BUTTON, request_contact=True)]], resize_keyboard=True)
+menu_step_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=MENU_STEP_BUTTON)]], resize_keyboard=True)
+sochi_step_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=SOCHI_STEP_BUTTON)]], resize_keyboard=True)
 legend_answer_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=YES_BUTTON), KeyboardButton(text=NO_BUTTON)]], resize_keyboard=True)
 participant_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=ABOUT_COMPANY_BUTTON)], [KeyboardButton(text=SOCHI_BUTTON)], [KeyboardButton(text=MANAGEMENT_BUTTON)], [KeyboardButton(text=MEETING_BUTTON)]], resize_keyboard=True)
 meeting_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BOOK_MEETING_BUTTON)], [KeyboardButton(text=BACK_BUTTON)]], resize_keyboard=True)
@@ -292,11 +297,8 @@ async def safe_send_document(message: Message, path: Path, caption: str | None =
 async def send_registered_menu(message: Message):
     await message.answer(AFTER_REGISTRATION_TEXT, reply_markup=participant_kb)
 
-async def run_story_until_consent(message: Message, state: FSMContext, name: str):
-    await message.answer(NAME_TEXT_TEMPLATE.format(name=name))
-    await safe_send_photo(message, TIMING_IMAGE, caption=TIMING_CAPTION)
-    await safe_send_photo(message, MENU_IMAGE, caption=MENU_CAPTION)
-    await message.answer(SOCHI_TEXT)
+async def send_sochi_intro_step(message: Message, state: FSMContext):
+    await message.answer(SOCHI_TEXT, reply_markup=ReplyKeyboardRemove())
     await safe_send_photo(message, SOCHI_INTRO_IMAGE)
     await safe_send_audio(message, LEGEND_AUDIO)
     await message.answer("✨", reply_markup=legend_answer_kb)
@@ -331,7 +333,26 @@ async def save_name(message: Message, state: FSMContext):
         await message.answer("Пожалуйста, введите имя текстом.")
         return
     await state.update_data(full_name=name)
-    await run_story_until_consent(message, state, name)
+    await message.answer(NAME_TEXT_TEMPLATE.format(name=name))
+    await safe_send_photo(message, TIMING_IMAGE, caption=TIMING_CAPTION, reply_markup=menu_step_kb)
+    await state.set_state(Registration.waiting_for_menu_step)
+
+@dp.message(Registration.waiting_for_menu_step, F.text == MENU_STEP_BUTTON)
+async def process_menu_step(message: Message, state: FSMContext):
+    await safe_send_photo(message, MENU_IMAGE, caption=MENU_CAPTION, reply_markup=sochi_step_kb)
+    await state.set_state(Registration.waiting_for_sochi_step)
+
+@dp.message(Registration.waiting_for_menu_step)
+async def wrong_menu_step(message: Message):
+    await message.answer("Пожалуйста, нажмите кнопку ниже.", reply_markup=menu_step_kb)
+
+@dp.message(Registration.waiting_for_sochi_step, F.text == SOCHI_STEP_BUTTON)
+async def process_sochi_step(message: Message, state: FSMContext):
+    await send_sochi_intro_step(message, state)
+
+@dp.message(Registration.waiting_for_sochi_step)
+async def wrong_sochi_step(message: Message):
+    await message.answer("Пожалуйста, нажмите кнопку ниже.", reply_markup=sochi_step_kb)
 
 @dp.message(Registration.waiting_for_legend_answer, F.text.in_({YES_BUTTON, NO_BUTTON}))
 async def process_legend_answer(message: Message, state: FSMContext):
