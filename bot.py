@@ -14,10 +14,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
-ADMIN_IDS = {123456789}
-RESET_PASSWORD = "1234"
-SOCHI_VIDEO_FILE_ID = "PASTE_VIDEO_FILE_ID_HERE"
+BOT_TOKEN = "8519818887:AAGuxEb5eIWMoAqFAFJ8yxObvgixrOq0AIo"
+ADMIN_IDS = {922603146}
+RESET_PASSWORD = "12345678"
+SOCHI_VIDEO_FILE_ID = "BAACAgIAAxkBAAMDadeAr6Rhi1VftEZDNhlXQ7dM2twAAueXAAJeicBK8zraIqLfVNw7BA"
 
 DB_PATH = "database.db"
 EXPORTS_DIR = Path("exports")
