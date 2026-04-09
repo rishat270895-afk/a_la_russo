@@ -20,11 +20,9 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-BOT_TOKEN = "8519818887:AAGuxEb5eIWMoAqFAFJ8yxObvgixrOq0AIo"
-ADMIN_IDS = {922603146}
-RESET_PASSWORD = "12345678"
-
-# ВРЕМЕННО: сюда позже вставишь реальный file_id, когда бот его покажет
+BOT_TOKEN = "PASTE_BOT_TOKEN_HERE"
+ADMIN_IDS = {123456789}
+RESET_PASSWORD = "1234"
 SOCHI_VIDEO_FILE_ID = "PASTE_VIDEO_FILE_ID_HERE"
 
 DB_PATH = "database.db"
@@ -70,70 +68,52 @@ START_GREETING = (
     "Добрый вечер, уважаемый пассажир эксклюзивного экспресса «Бархатный путь»! "
     "Совсем скоро начнется наше путешествие, а пока - давайте знакомиться?"
 )
-
 ASK_NAME = "Пожалуйста, введите ваше имя."
-
 NAME_TEXT_TEMPLATE = (
     "{name}, ох, сколько Вас сегодня ждет впереди! "
     "Вечер наполнен изысканными угощениями, подарками, сюрпризами, танцами, музыкой и даже… мистикой!"
 )
-
 TIMING_CAPTION = "Как видите, остановки предусмотрены, за это не переживайте"
-
 MENU_CAPTION = (
     "Голод - враг искусства! Перейдем к меню на ужин? "
     "Вы только посмотрите, какое обилие угощений Вас ждет впереди!"
 )
-
 SOCHI_TEXT = (
     "А Вы бывали в Сочи? Просто представьте: шум моря, запах цветущих магнолий "
     "и прибой Черного моря… А знаете ли вы легенду о бархатном сезоне?"
 )
-
 VELVET_HISTORY_TEXT = (
     "В конце XIX – начале XX века русская аристократия отдыхала в Крыму не летом, "
     "а в апреле-мае, сменяя меховые одежды на бархатные, что изначально дало название сезону. "
     "И только сильно позже сезон сместился на начало осени из-за рекомендаций врачей"
 )
-
 VELVET_NEXT_TEXT = (
     "Сегодня окунемся в истории бархатного сезона, и Вы сможете стать свидетелями событий того времени…"
 )
-
 CONSENT_TEXT = "Пожалуйста, подтвердите согласие на обработку персональных данных."
 ASK_PHONE_TEXT = "Пожалуйста, нажмите кнопку ниже и отправьте номер телефона."
 AFTER_REGISTRATION_TEXT = "Фотографии и видео с сегодняшнего события мы вышлем Вам здесь, поэтому не переключайтесь"
 ALREADY_REGISTERED_TEXT = "Вы уже зарегистрированы. Ниже доступно меню участника."
-
 ABOUT_COMPANY_CAPTION = (
     "Международное агентство недвижимости NIKA ESTATE\n\n"
     "С 2013 года сопровождаем сделки в премиальном сегменте.\n"
     "Входим в международную ассоциацию AREA.\n\n"
     "Только лучшие предложения на рынке\n"
     "недвижимости в России и за рубежом.\n\n"
-    "Семейная резиденция, коммерческий объект, точка выхода на новый рынок или актив с понятной доходностью – "
-    "любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, "
-    "в котором важны детали, конфиденциальность и результат.\n\n"
+    "Семейная резиденция, коммерческий объект, точка выхода на новый рынок или актив с понятной доходностью – любой вопрос, связанный с недвижимостью, мы решаем через экспертизу, аналитику и сервис, в котором важны детали, конфиденциальность и результат.\n\n"
     "NIKA ESTATE – ваш доступ к миру премиальной недвижимости в России и за рубежом.\n\n"
     "Telegram-канал: https://t.me/nikaestate_sochi"
 )
-
 MANAGEMENT_1_CAPTION = "Виктор Садыгов, основатель и генеральный директор NIKA ESTATE."
 MANAGEMENT_2_CAPTION = "Юлия Нафикова, управляющий партнер, топ брокер и амбассадор NIKA ESTATE, телефон для связи +79182888696."
 MEETING_TEXT = "Чтобы записаться на встречу, нажмите кнопку ниже."
-MEETING_ACCEPTED_TEXT = (
-    "Спасибо за отклик 💛\n\n"
-    "Информация принята, и мы уже передали Ваш запрос. "
-    "С Вами обязательно свяжутся в ближайшее время, чтобы подобрать удобный формат встречи."
-)
-
+MEETING_ACCEPTED_TEXT = "Спасибо за отклик 💛\n\nИнформация принята, и мы уже передали Ваш запрос. С Вами обязательно свяжутся в ближайшее время, чтобы подобрать удобный формат встречи."
 ADMIN_ONLY_TEXT = "Эта команда доступна только администратору."
 UNKNOWN_TEXT = "Используйте кнопки меню."
 EXPORT_EMPTY_TEXT = "За выбранный период зарегистрированных участников нет."
 RESET_PASSWORD_TEXT = "Введите пароль для сброса базы."
 RESET_SUCCESS_TEXT = "База данных очищена."
 RESET_FAILED_TEXT = "Неверный пароль. Ресет отменён."
-
 BROADCAST_PROMPT_TEXT = "Отправьте сообщение для рассылки.\nМожно отправить обычный текст или фото с подписью."
 BROADCAST_PREVIEW_TEXT = "Предпросмотр рассылки. Выберите действие:"
 BROADCAST_DONE_TEXT = "Рассылка завершена.\nУспешно: {ok}\nНе доставлено: {bad}"
@@ -161,8 +141,7 @@ def init_db() -> None:
     with get_connection() as conn:
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(participants)").fetchall()]
         if not columns:
-            conn.execute(
-                '''
+            conn.execute('''
                 CREATE TABLE participants (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     tg_id INTEGER NOT NULL UNIQUE,
@@ -174,11 +153,9 @@ def init_db() -> None:
                     meeting_requested_at TEXT,
                     created_at TEXT NOT NULL
                 )
-                '''
-            )
+            ''')
             conn.commit()
             return
-
         if "wants_meeting" not in columns:
             conn.execute("ALTER TABLE participants ADD COLUMN wants_meeting INTEGER NOT NULL DEFAULT 0")
         if "meeting_requested_at" not in columns:
@@ -212,31 +189,23 @@ def create_user(tg_id: int, username: str | None, full_name: str, phone: str) ->
     number = get_next_number()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        conn.execute(
-            '''
+        conn.execute('''
             INSERT INTO participants (
                 tg_id, username, full_name, phone, participant_number,
                 wants_meeting, meeting_requested_at, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, 0, NULL, ?)
-            ''',
-            (tg_id, username, full_name, phone, number, created_at),
-        )
+            ) VALUES (?, ?, ?, ?, ?, 0, NULL, ?)
+        ''', (tg_id, username, full_name, phone, number, created_at))
         conn.commit()
     return number
 
 def set_meeting_request(tg_id: int) -> None:
     requested_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        conn.execute(
-            '''
+        conn.execute('''
             UPDATE participants
-            SET wants_meeting = 1,
-                meeting_requested_at = ?
+            SET wants_meeting = 1, meeting_requested_at = ?
             WHERE tg_id = ?
-            ''',
-            (requested_at, tg_id),
-        )
+        ''', (requested_at, tg_id))
         conn.commit()
 
 def get_period_start(period: str) -> datetime:
@@ -271,21 +240,18 @@ def export_to_excel(period: str) -> Path | None:
     file_path = EXPORTS_DIR / f"participants_{period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     data = []
     for row in rows:
-        data.append(
-            {
-                "ID": row["id"],
-                "Telegram ID": row["tg_id"],
-                "Username": row["username"] or "",
-                "Имя": row["full_name"],
-                "Телефон": row["phone"],
-                "Номер участника": row["participant_number"],
-                "Хочет встречу": "Да" if int(row["wants_meeting"] or 0) == 1 else "Нет",
-                "Дата заявки на встречу": row["meeting_requested_at"] or "",
-                "Дата регистрации": row["created_at"],
-            }
-        )
-    df = pd.DataFrame(data)
-    df.to_excel(file_path, index=False)
+        data.append({
+            "ID": row["id"],
+            "Telegram ID": row["tg_id"],
+            "Username": row["username"] or "",
+            "Имя": row["full_name"],
+            "Телефон": row["phone"],
+            "Номер участника": row["participant_number"],
+            "Хочет встречу": "Да" if int(row["wants_meeting"] or 0) == 1 else "Нет",
+            "Дата заявки на встречу": row["meeting_requested_at"] or "",
+            "Дата регистрации": row["created_at"],
+        })
+    pd.DataFrame(data).to_excel(file_path, index=False)
     return file_path
 
 def start_kb(is_admin_user: bool = False) -> ReplyKeyboardMarkup:
@@ -294,63 +260,13 @@ def start_kb(is_admin_user: bool = False) -> ReplyKeyboardMarkup:
         rows.append([KeyboardButton(text=ADMIN_MENU_BUTTON)])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
-consent_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=CONSENT_ACCEPT_BUTTON)],
-        [KeyboardButton(text=CONSENT_DECLINE_BUTTON)],
-    ],
-    resize_keyboard=True,
-)
-
-phone_kb = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text=SEND_PHONE_BUTTON, request_contact=True)]],
-    resize_keyboard=True,
-)
-
-legend_answer_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=YES_BUTTON), KeyboardButton(text=NO_BUTTON)],
-    ],
-    resize_keyboard=True,
-)
-
-participant_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=ABOUT_COMPANY_BUTTON)],
-        [KeyboardButton(text=SOCHI_BUTTON)],
-        [KeyboardButton(text=MANAGEMENT_BUTTON)],
-        [KeyboardButton(text=MEETING_BUTTON)],
-    ],
-    resize_keyboard=True,
-)
-
-meeting_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=BOOK_MEETING_BUTTON)],
-        [KeyboardButton(text=BACK_BUTTON)],
-    ],
-    resize_keyboard=True,
-)
-
-admin_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=EXPORT_TODAY_BUTTON)],
-        [KeyboardButton(text=EXPORT_WEEK_BUTTON)],
-        [KeyboardButton(text=EXPORT_MONTH_BUTTON)],
-        [KeyboardButton(text=BROADCAST_BUTTON)],
-        [KeyboardButton(text=RESET_DB_BUTTON)],
-        [KeyboardButton(text=BACK_BUTTON)],
-    ],
-    resize_keyboard=True,
-)
-
-broadcast_confirm_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text=BROADCAST_SEND_BUTTON)],
-        [KeyboardButton(text=BROADCAST_CANCEL_BUTTON)],
-    ],
-    resize_keyboard=True,
-)
+consent_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=CONSENT_ACCEPT_BUTTON)], [KeyboardButton(text=CONSENT_DECLINE_BUTTON)]], resize_keyboard=True)
+phone_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=SEND_PHONE_BUTTON, request_contact=True)]], resize_keyboard=True)
+legend_answer_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=YES_BUTTON), KeyboardButton(text=NO_BUTTON)]], resize_keyboard=True)
+participant_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=ABOUT_COMPANY_BUTTON)], [KeyboardButton(text=SOCHI_BUTTON)], [KeyboardButton(text=MANAGEMENT_BUTTON)], [KeyboardButton(text=MEETING_BUTTON)]], resize_keyboard=True)
+meeting_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BOOK_MEETING_BUTTON)], [KeyboardButton(text=BACK_BUTTON)]], resize_keyboard=True)
+admin_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=EXPORT_TODAY_BUTTON)], [KeyboardButton(text=EXPORT_WEEK_BUTTON)], [KeyboardButton(text=EXPORT_MONTH_BUTTON)], [KeyboardButton(text=BROADCAST_BUTTON)], [KeyboardButton(text=RESET_DB_BUTTON)], [KeyboardButton(text=BACK_BUTTON)]], resize_keyboard=True)
+broadcast_confirm_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BROADCAST_SEND_BUTTON)], [KeyboardButton(text=BROADCAST_CANCEL_BUTTON)]], resize_keyboard=True)
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -388,11 +304,6 @@ async def run_story_until_consent(message: Message, state: FSMContext, name: str
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
-
-# ВРЕМЕННЫЙ ОБРАБОТЧИК ДЛЯ ПОЛУЧЕНИЯ file_id ВИДЕО
-@dp.message(F.video)
-async def debug_get_video_file_id(message: Message):
-    await message.answer(f"VIDEO FILE ID:\n{message.video.file_id}")
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -437,10 +348,7 @@ async def wrong_legend_answer(message: Message):
 @dp.message(Registration.waiting_for_consent, F.text == CONSENT_DECLINE_BUTTON)
 async def decline_consent(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(
-        "Без согласия на обработку персональных данных регистрация невозможна.",
-        reply_markup=start_kb(is_admin(message.from_user.id)),
-    )
+    await message.answer("Без согласия на обработку персональных данных регистрация невозможна.", reply_markup=start_kb(is_admin(message.from_user.id)))
 
 @dp.message(Registration.waiting_for_consent, F.text == CONSENT_ACCEPT_BUTTON)
 async def accept_consent(message: Message, state: FSMContext):
@@ -460,31 +368,20 @@ async def save_phone(message: Message, state: FSMContext):
     if message.contact.user_id and message.contact.user_id != message.from_user.id:
         await message.answer("Пожалуйста, отправьте свой номер телефона.")
         return
-
     existing_by_user = get_user_by_tg_id(message.from_user.id)
     if existing_by_user:
         await state.clear()
         await message.answer(ALREADY_REGISTERED_TEXT, reply_markup=participant_kb)
         return
-
     phone = normalize_phone(message.contact.phone_number)
     existing_by_phone = get_user_by_phone(phone)
     if existing_by_phone:
         await state.clear()
-        await message.answer(
-            "Этот номер телефона уже есть в базе. Один человек не может иметь два номера.",
-            reply_markup=start_kb(is_admin(message.from_user.id)),
-        )
+        await message.answer("Этот номер телефона уже есть в базе. Один человек не может иметь два номера.", reply_markup=start_kb(is_admin(message.from_user.id)))
         return
-
     data = await state.get_data()
     full_name = data.get("full_name", "Без имени")
-    create_user(
-        tg_id=message.from_user.id,
-        username=message.from_user.username,
-        full_name=full_name,
-        phone=phone,
-    )
+    create_user(message.from_user.id, message.from_user.username, full_name, phone)
     await state.clear()
     await send_registered_menu(message)
 
